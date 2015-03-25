@@ -9,13 +9,12 @@ from math import isnan
 importWeights = True # True if you just want to load some weights (can either train further or just proceed)
 trainWeights = False # if True and importWeights==True, then initializes with imported weights and trains further
 printWeights =  False # saves weights in classifierStringWeights.py
+
 classifierString="vtagBestWeightedSmallData1Hidden"
-# classifierString="vtagBestLargeData2Hidden"
 print classifierString
 negVal=0
 largeDatasets=True
 listOfRawVars = ["fjet1QGtagSub1","fjet1QGtagSub2","fjet1QGtag","fjet1PullAngle","fjet1Pull","fjet1MassTrimmed","fjet1MassPruned","fjet1MassSDbm1","fjet1MassSDb2","fjet1MassSDb0","fjet1QJetVol","fjet1C2b2","fjet1C2b1","fjet1C2b0p5","fjet1C2b0p2","fjet1C2b0","fjet1Tau2","fjet1Tau1"]   
-# listOfRawVars = ["fjet1QGtagSub1","fjet1QGtagSub2","fjet1Tau2","fjet1Tau1"]   
 nRawVars = len(listOfRawVars)
 dims=[nRawVars+3,nRawVars+3,1] # one extra for constant offset
 # dims=[nRawVars+3,nRawVars+3,nRawVars+3,nRawVars+3,1] # one extra for constant offset
