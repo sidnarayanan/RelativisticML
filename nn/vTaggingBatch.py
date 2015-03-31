@@ -13,7 +13,7 @@ largeDatasets = False # use high statistics samples but have slow i/o
 negVal=0
 listOfRawVars = ["fjet1QGtagSub1","fjet1QGtagSub2","fjet1QGtag","fjet1PullAngle","fjet1Pull","fjet1MassTrimmed","fjet1MassPruned","fjet1MassSDbm1","fjet1MassSDb2","fjet1MassSDb0","fjet1QJetVol","fjet1C2b2","fjet1C2b1","fjet1C2b0p5","fjet1C2b0p2","fjet1C2b0","fjet1Tau2","fjet1Tau1"]   
 nRawVars = len(listOfRawVars)
-nHidden=5
+nHidden=1
 dims=[nRawVars+3]
 for i in xrange(nHidden):
   dims.append(nRawVars+3)
@@ -41,7 +41,7 @@ if not importClassifier:
   sigX = np.empty([sigTree.GetEntries(),nRawVars+2]) # two extra computed
   sigY = np.empty([sigTree.GetEntries()])
   bgX = np.empty([bgTree.GetEntries(),nRawVars+2]) # two extra computed
-  sigY = np.empty([bgTree.GetEntries()])
+  bgY = np.empty([bgTree.GetEntries()])
   sigcount=0
   bgcount=0
   if not largeDatasets:
@@ -118,11 +118,11 @@ if not importClassifier:
   bgX = bgX[:bgcount] # only include those that passed
   sigY = sigY[:sigcount]
   bgY = bgY[:bgcount]
-  rawDataX = np.vstack((sigX,bgX))
-  mean=rawDataX.mean(0)
-  std=rawDataX.std(0)
-  rawDataX = (rawDataX - mean)/std
-  rawDataY = np.hstack((sigY,bgY))
+  dataX = np.vstack((sigX,bgX))
+  mean=dataX.mean(0)
+  std=dataX.std(0)
+  dataX = (dataX - mean)/std
+  dataY = np.hstack((sigY,bgY))
   indices = np.arange(bgcount+sigcount)
   sigFile.Close()
   bgFile.Close()
@@ -141,8 +141,8 @@ classifier.printSummary()
 if not importWeights:
   # we should train the classifier
   nData = classifier.dataY.shape[0]
-  classifier.randomIndices(nData/3*2)
-  classifier.train()
+  classifier.randomizeIndices(nData/3*2)
+  classifier.train(1)
 
 validationIndices = classifier.validationIndices
 nBins=100
@@ -161,6 +161,7 @@ rootFile.cd()
 hSig.Write()
 hBg.Write()
 rootFile.Close()
+
 rocFile = open(argv[1]+".roc",'w')
 nSig = float(hSig.Integral())
 nBg = float(hBg.Integral())
@@ -168,3 +169,7 @@ for cut in xrange(nBins):
   sigErr = hSig.Integral(1,cut)/nSig
   bgErr = hBg.Integral(cut,nBins)/nBg
   rocFile.write("%i %f %f\n"%(cut,1-sigErr,bgErr))
+rocFile.close()
+
+classifier.destroySummaryFile()
+classifier.dumpToPickle(argv[1]+".pkl")

@@ -3,6 +3,7 @@
 import numpy as np
 import sys
 import cPickle as pickle
+from multiprocessing import Pool
 
 exp = np.exp
 
@@ -121,7 +122,7 @@ class Network(object):
 
   def createSummaryFile(self,fileName):
     self.summaryFile = open(fileName,"w")
-  def destroySummaryfile(self):
+  def destroySummaryFile(self):
     self.summaryFile.close()
 
   def __str__(self):
@@ -149,12 +150,27 @@ class Network(object):
         self.weights[n] -= np.outer(z,delta)*self.alpha
         # self.weights[n] = self.weights[n]/self.weights[n].sum(axis=0) # maintain normalization
 
-  def evaluateError(self,indices):
-    t=0.
-    for i in indices:
-      t+=  self.evaluate(self.dataX[i]) -  self.dataY[i] 
-    t = t/len(indices)
-    return t
+  def normalizeWeights(self):
+    for n in range(self.nLayers-2,-1,-1):
+      self.weights[n] = self.weights[n]/self.weights[n].sum(axis=0)
+
+  def hiddenBackProp(self,error):
+    # do backprop but do not apply weight differences
+    weightDelta = []
+    for n in range(self.nLayers-1,-1,-1):
+      weightDelta.append(None)
+      if n==self.nLayers-1:
+        self.outputLayer.setDeltas(error)
+      else:
+        z = self.layers[n].evaluate()
+        delta = self.layers[n+1].getDeltas()
+        self.layers[n].setDeltas(np.dot(self.weights[n],delta))
+        weightDelta[n] = np.outer(z,delta)*self.alpha
+        # self.weights[n] = self.weights[n]/self.weights[n].sum(axis=0) # maintain normalization
+    return weightDelta
+
+  def evaluateError(self,index):
+    return self.evaluate(self.dataX[i]) - self.dataY[i]
 
   def evaluatePerformance(self,indices):
     t=0.
@@ -164,9 +180,9 @@ class Network(object):
     return np.sqrt(t)    
 
   def testNetwork(self):
-    return self.evaluatePerformance(testingIndices)
+    return self.evaluatePerformance(self.testingIndices)
   def validateNetwork(self):
-    return self.evaluatePerformance(validationIndices)
+    return self.evaluatePerformance(self.validationIndices)
 
   def train(self,batchSize=1):
     if not self.dataHasBeenShuffled:
@@ -176,20 +192,29 @@ class Network(object):
     testError = self.testNetwork()
     nEpoch=0
     if self.debug:
-      self.summaryFile.write("Epoch: %i\t Error: %.3f\n"%(nEpoch,testError))
+      self.summaryFile.write("Epoch: %i\t Error: %f\n"%(nEpoch,testError))
+    j=0
+    nTrain = len(self.trainingIndices)
+    pool = Pool(6) # figure out better way of nproc later
     while True:
-      for j in len(self.data)/batchSize:
-        error = self.evaluateError(self.trainingIndices[j*batchSize:(j+1)*batchSize])
-        self.backProp(error)
+      if j > nTrain/batchSize:
+        j=0
+      batchWeightDeltas = pool.map( lambda x : self.hiddenBackProp(self.evaluateError(x)) , self.trainingIndices[j*batchSize:(j+1)*batchSize])
+      for i in range(j*batchSize,(j+1)*batchSize):
+        for k in range(self.nLayers-1):
+          self.weights[k] -= batchWeightDeltas[i][k]/float(batchSize)
+      self.normalizeWeights()
       lastError = testError
       testerror = self.testNetwork()
+      nEpoch+=1
       if self.debug:
-        self.summaryFile.write("Epoch: %i\t Error: %.3f\n"%(nEpoch,testError))
-      if testError > lastError:
+        self.summaryFile.write("Epoch: %i\t Error: %f\n"%(nEpoch,testError))
+      if testError >= lastError:
         self.alpha = self.alpha/10.
-        self.summaryFile.write("Lowering alpha to %.3f\n"%(alpha))
+        self.summaryFile.write("Lowering alpha to %.3f\n"%(self.alpha))
         if self.alpha < 0.001:
           break
+      j+=1
 
   def randomizeIndices(self,nTrain=-1, nTest=-1, nValidate=-1):
     nData = self.dataY.shape[0]
