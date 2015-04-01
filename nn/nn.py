@@ -3,8 +3,8 @@
 import numpy as np
 import sys
 import cPickle as pickle
-from multiprocessing import Pool
-
+import pathos.multiprocessing as mp
+from multiprocessing import cpu_count
 exp = np.exp
 
 def sigmoid(w):
@@ -154,11 +154,13 @@ class Network(object):
     for n in range(self.nLayers-2,-1,-1):
       self.weights[n] = self.weights[n]/self.weights[n].sum(axis=0)
 
-  def hiddenBackProp(self,error):
+  def hiddenBackProp(self,index):
+    error = self.evaluateError(index)
     # do backprop but do not apply weight differences
     weightDelta = []
-    for n in range(self.nLayers-1,-1,-1):
+    for n in range(self.nLayers-1):
       weightDelta.append(None)
+    for n in range(self.nLayers-1,-1,-1):
       if n==self.nLayers-1:
         self.outputLayer.setDeltas(error)
       else:
@@ -166,10 +168,9 @@ class Network(object):
         delta = self.layers[n+1].getDeltas()
         self.layers[n].setDeltas(np.dot(self.weights[n],delta))
         weightDelta[n] = np.outer(z,delta)*self.alpha
-        # self.weights[n] = self.weights[n]/self.weights[n].sum(axis=0) # maintain normalization
     return weightDelta
 
-  def evaluateError(self,index):
+  def evaluateError(self,i):
     return self.evaluate(self.dataX[i]) - self.dataY[i]
 
   def evaluatePerformance(self,indices):
@@ -177,7 +178,7 @@ class Network(object):
     for i in indices:
       t+=  pow(self.evaluate(self.dataX[i]) -  self.dataY[i] , 2)
     t = t/len(indices)
-    return np.sqrt(t)    
+    return t
 
   def testNetwork(self):
     return self.evaluatePerformance(self.testingIndices)
@@ -190,31 +191,34 @@ class Network(object):
       self.randomizeIndices()
     self.alpha=1
     testError = self.testNetwork()
+    lastError = testError
     nEpoch=0
     if self.debug:
       self.summaryFile.write("Epoch: %i\t Error: %f\n"%(nEpoch,testError))
     j=0
     nTrain = len(self.trainingIndices)
-    pool = Pool(6) # figure out better way of nproc later
+    pool = mp.ProcessingPool(cpu_count()-1) 
     while True:
-      if j > nTrain/batchSize:
-        j=0
-      batchWeightDeltas = pool.map( lambda x : self.hiddenBackProp(self.evaluateError(x)) , self.trainingIndices[j*batchSize:(j+1)*batchSize])
-      for i in range(j*batchSize,(j+1)*batchSize):
+      batchWeightDeltas = pool.map( self.hiddenBackProp , self.trainingIndices[j*batchSize:(j+1)*batchSize])
+      for i in range(batchSize):
         for k in range(self.nLayers-1):
           self.weights[k] -= batchWeightDeltas[i][k]/float(batchSize)
       self.normalizeWeights()
+      last2Error = lastError
       lastError = testError
-      testerror = self.testNetwork()
-      nEpoch+=1
+      testError = self.testNetwork()
       if self.debug:
-        self.summaryFile.write("Epoch: %i\t Error: %f\n"%(nEpoch,testError))
-      if testError >= lastError:
-        self.alpha = self.alpha/10.
-        self.summaryFile.write("Lowering alpha to %.3f\n"%(self.alpha))
-        if self.alpha < 0.001:
+          self.summaryFile.write("Epoch: %i\tBatch: %i\t Error: %f\n"%(nEpoch,j,testError))
+          sys.stdout.write("Epoch: %i\tBatch: %i\t Error: %f\n"%(nEpoch,j,testError))
+      j = (j+1) % (nTrain/batchSize)
+      if j==0:
+        nEpoch+=1
+      if testError > lastError > last2Error:
+        self.alpha = self.alpha/2.
+        self.summaryFile.write("Lowering alpha to %.4f\n"%(self.alpha))
+        sys.stdout.write("Lowering alpha to %.4f\n"%(self.alpha))
+        if self.alpha < 0.0001:
           break
-      j+=1
 
   def randomizeIndices(self,nTrain=-1, nTest=-1, nValidate=-1):
     nData = self.dataY.shape[0]
@@ -234,7 +238,7 @@ class Network(object):
     self.validationIndices = indices[nTrain+nTest:nTrain+nTest+nValidate]
     self.dataHasBeenShuffled = True
 
-  def dumpToPickle(pickleJarName):
+  def dumpToPickle(self,pickleJarName):
     pickleJar = open(pickleJarName,'wb')
     pickleDict = {"dataX":self.dataX,
                   "dataY":self.dataY,
@@ -249,7 +253,7 @@ class Network(object):
     pickle.dump(pickleDict,pickleJar,2)
     pickleJar.close()
 
-  def loadFromPickle(pickleJarName):
+  def loadFromPickle(self,pickleJarName):
     pickleJar = open(pickleJarName,'rb')
     pickleDict = pickle.load(pickleJar)
     self.dataX = pickleDict["dataX"]
@@ -262,6 +266,3 @@ class Network(object):
     self.trainingIndices = pickleDict["trainingIndices"]
     self.testingIndices = pickleDict["testingIndices"]
     self.validationIndices = pickleDict["validationIndices"]
-
-
-

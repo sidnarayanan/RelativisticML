@@ -5,6 +5,9 @@ import numpy as np
 import ROOT
 from sys import exit,stderr,stdout,argv
 from math import isnan
+from os import getpid
+
+print getpid() # to make it easier to kill
 
 importClassifier = False # True to load data and weights
 importWeights = False # False if you want to randomly initialize weights
@@ -13,7 +16,7 @@ largeDatasets = False # use high statistics samples but have slow i/o
 negVal=0
 listOfRawVars = ["fjet1QGtagSub1","fjet1QGtagSub2","fjet1QGtag","fjet1PullAngle","fjet1Pull","fjet1MassTrimmed","fjet1MassPruned","fjet1MassSDbm1","fjet1MassSDb2","fjet1MassSDb0","fjet1QJetVol","fjet1C2b2","fjet1C2b1","fjet1C2b0p5","fjet1C2b0p2","fjet1C2b0","fjet1Tau2","fjet1Tau1"]   
 nRawVars = len(listOfRawVars)
-nHidden=1
+nHidden=5
 dims=[nRawVars+3]
 for i in xrange(nHidden):
   dims.append(nRawVars+3)
@@ -142,7 +145,7 @@ if not importWeights:
   # we should train the classifier
   nData = classifier.dataY.shape[0]
   classifier.randomizeIndices(nData/3*2)
-  classifier.train(1)
+  classifier.train(100)
 
 validationIndices = classifier.validationIndices
 nBins=100
