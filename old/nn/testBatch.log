@@ -1,0 +1,5 @@
+Network Class Summary:
+	alpha=0.500000
+	p=0.000000
+	nLayers=5
+	dims=[21, 21, 21, 21, 1]
