@@ -30,6 +30,13 @@ class Logistic(object):
         },
         allow_input_downcast=True
       )
+    self.probabilities = theano.function(
+        inputs = [testX],
+        outputs = self.P,
+        givens = {
+          self.input : testX
+        }
+      )
   def NLL(self,y):
     '''
     NLL loss
