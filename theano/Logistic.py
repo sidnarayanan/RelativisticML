@@ -1,8 +1,5 @@
 #!/usr/bin/env python
 
-import cPickle as pickle
-import gzip
-import time
 import numpy as np
 import theano
 import theano.tensor as T
@@ -33,13 +30,20 @@ class Logistic(object):
         },
         allow_input_downcast=True
       )
-  def lossFunction(self,y):
+  def NLL(self,y):
     '''
     NLL loss
     this assumes the classes are indexed 0...N
     '''
     return -T.mean(T.log(self.P)[T.arange(y.shape[0]),y])
-  def getTrainer(self):
+  def aNLL(self,y):
+    '''
+    Asymmetric NLL loss
+    gives more weight to classes with higher numbers (i.e. y=1 errors are penalized more than y=0)
+    this assumes the classes are indexed 0...N
+    '''
+    return -T.mean((2*y+1)*T.log(self.P)[T.arange(y.shape[0]),y])
+  def getTrainer(self,lossType="NLL"):
     '''
     return a function to do MBSGD on (trainX,trainY) 
     '''
@@ -49,8 +53,10 @@ class Logistic(object):
     lowIdx = T.iscalar()
     highIdx = T.iscalar()
     trainX = T.matrix()
-
-    loss = self.lossFunction(trainY)
+    if lossType=="aNLL":
+      loss = self.aNLL(trainY)
+    else:
+      loss = self.NLL(trainY)
     dW = T.grad(cost = loss, wrt = self.W)
     db = T.grad(cost = loss, wrt = self.b)
     updates = [(self.W,self.W - alpha * dW), (self.b,self.b - alpha * db)]
@@ -64,5 +70,3 @@ class Logistic(object):
         allow_input_downcast=True
       )
     return trainer
-
-
