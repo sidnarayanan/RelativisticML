@@ -46,10 +46,11 @@ class Logistic(object):
   def aNLL(self,y):
     '''
     Asymmetric NLL loss
-    gives more weight to classes with higher numbers (i.e. y=1 errors are penalized more than y=0)
+    gives more weight to classes with higher numbers 
+      (i.e. y=1 errors are penalized more than y=0)
     this assumes the classes are indexed 0...N
     '''
-    return -T.mean((2*y+1)*T.log(self.P)[T.arange(y.shape[0]),y])
+    return -T.mean((1*y+1)*T.log(self.P)[T.arange(y.shape[0]),y])
   def getTrainer(self,lossType="NLL"):
     '''
     return a function to do MBSGD on (trainX,trainY) 
