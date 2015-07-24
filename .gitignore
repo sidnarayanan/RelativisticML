@@ -1,0 +1,8 @@
+sampleData
+*.png
+*.pdf
+*.pyc
+*.root
+*.log
+*.err
+.dropbox
