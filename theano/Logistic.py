@@ -38,6 +38,11 @@ class Logistic(object):
           self.input : testX
         }
       )
+  def __getstate__(self):
+      return {'W':self.W, 'b':self.b}
+  def __setstate__(self,d):
+      self.W = d['W']
+      self.b = d['b']
   def NLL(self,y):
     '''
     NLL loss

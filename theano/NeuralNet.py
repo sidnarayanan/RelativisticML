@@ -29,6 +29,14 @@ class HiddenLayer(object):
 			self.output = sigmoid(T.dot(input,self.W) + self.b)
 		else:
 			self.output = T.dot(input,self.W) + self.b
+	def __getstate__(self):
+		return {'nIn':self.nIn,
+				'nOut':self.nOut,
+				'W':self.W,
+				'b':self.b}
+	def __setstate__(self,d):
+		for k,v in d.iteritems():
+			setattr(self,k,v)
 
 class NeuralNet(object):
 	def __init__(self,input,rng,layerSize):
