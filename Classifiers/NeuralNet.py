@@ -40,10 +40,14 @@ class HiddenLayer(object):
 
 class NeuralNet(object):
 	def __init__(self,input,rng,layerSize):
+		if len(layerSize)<3:
+			print "Warning: cannot create NeuralNet without at least one hidden layer (use Classifiers.Logistic.Logistic instead)"
 		'''
-			network architecture:
+			network structure:
 			layerSize[0] -> ... -> layerSize[N-1]
 		'''
+		self.nIn = layerSize[0]
+		self.nOut = layerSize[-1]
 		N = len(layerSize)
 		self.input=input
 		self.hiddenLayers=[HiddenLayer(
@@ -94,6 +98,15 @@ class NeuralNet(object):
 		for hl in self.hiddenLayers:
 			self.theta += [hl.W,hl.b]
 		self.theta += [self.outLayer.W,self.outLayer.b]
+	def getParameters(self):
+		# easy way of exporting network parameters
+		params=[]
+		for l in self.hiddenLayers+[self.outLayer]:
+			p={}
+			p['W'] = l.W.get_value()
+			p['b'] = l.b.get_value()
+			params.append(p)
+		return params
 	def testFcn(self,massBinned,trainY,trainX):
 		y = T.dvector('y')
 		varBinned = T.ivector('var')
