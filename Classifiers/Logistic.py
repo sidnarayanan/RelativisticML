@@ -76,7 +76,7 @@ class Logistic(object):
       return T.max(probs*(1-y)) - T.min(probs*(1-y))
   def BGBinnedReg(self,y,varBinned):
     '''
-    regularizes background efficiency in a binned variable var
+    regularizes background efficiency in a binned variable
     '''
     # baseHist = 0
     probs = self.P[T.arange(y.shape[0]),1]

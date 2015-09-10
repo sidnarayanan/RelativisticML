@@ -4,8 +4,57 @@ import theano
 import theano.tensor as T
 import numpy as np
 import Logistic
+import ROOT as root
 
 theano.config.int_division = 'floatX'
+
+
+def evaluateZScore(probabilities,truth,prunedMass,plotMass=False):
+	fout = root.TFile("outputHists.root","RECREATE")
+	hSig = root.TH1F("hSig","hSig",100,0.,1.)
+	hBg = root.TH1F("hBg","hBg",100,0.,1.)
+	for i in xrange(truth.shape[0]):
+		if truth[i]==1:
+			hSig.Fill(probabilities[i,1])
+		else:
+			hBg.Fill(probabilities[i,1])
+	nSig = hSig.Integral()
+	nBg = hBg.Integral()
+	nerrBg = 1
+	done = False
+	cutVal = 0
+	for margin in [(.49,.51), (.45,.55), (.4,.6)]:
+		for cut in xrange(100):
+			nerrSig = hSig.Integral(1,cut)/nSig
+			if margin[0] <nerrSig < margin[1]:
+				nerrBg = hBg.Integral(cut,100)/nBg
+				cutVal = cut
+				done = True
+				break
+		if done:
+			break
+	fout.WriteTObject(hSig,"hSig")
+	fout.WriteTObject(hBg,"hBg")
+	if plotMass:
+		fout.cd()
+		hMassSig = root.TH1F("hMassSig","hMassSig",100,0,200)
+		hMassBg = root.TH1F("hMassBg","hMassBg",100,0,200)
+		for i in xrange(truth.shape[0]):
+			if probabilities[i,1] > cutVal*0.01:
+				if truth[i]==1:
+					hMassSig.Fill(prunedMass[i])
+				else:
+					hMassBg.Fill(prunedMass[i])
+		c1 = root.TCanvas()
+		hMassSig.SetNormFactor()
+		hMassSig.Draw("")
+		hMassBg.SetNormFactor()
+		hMassBg.SetLineColor(2)
+		hMassBg.Draw("same")
+		c1.SaveAs("mass.png")
+		fout.Write()
+	fout.Close()
+	return nerrBg
 
 class HiddenLayer(object):
 	def __init__(self,input,rng,nIn,nOut,W=None,b=None,sigmoid=T.tanh):
@@ -30,13 +79,11 @@ class HiddenLayer(object):
 		else:
 			self.output = T.dot(input,self.W) + self.b
 	def __getstate__(self):
-		return {'nIn':self.nIn,
-				'nOut':self.nOut,
-				'W':self.W,
-				'b':self.b}
+		return {'W':self.W.get_value(),
+				'b':self.b.get_value()}
 	def __setstate__(self,d):
-		for k,v in d.iteritems():
-			setattr(self,k,v)
+		self.W.set_value(d['W'])
+		self.b.set_value(d['b'])
 
 class NeuralNet(object):
 	def __init__(self,input,rng,layerSize):
