@@ -9,36 +9,27 @@ import ROOT as root
 theano.config.int_division = 'floatX'
 
 
-def evaluateZScore(probabilities,truth,prunedMass,plotMass=False):
-	fout = root.TFile("outputHists.root","RECREATE")
-	hSig = root.TH1F("hSig","hSig",100,0.,1.)
-	hBg = root.TH1F("hBg","hBg",100,0.,1.)
-	for i in xrange(truth.shape[0]):
-		if truth[i]==1:
-			hSig.Fill(probabilities[i,1])
-		else:
-			hBg.Fill(probabilities[i,1])
-	nSig = hSig.Integral()
-	nBg = hBg.Integral()
-	nerrBg = 1
-	done = False
-	cutVal = 0
-	for margin in [(.49,.51), (.45,.55), (.4,.6)]:
-		for cut in xrange(100):
-			nerrSig = hSig.Integral(1,cut)/nSig
-			if margin[0] <nerrSig < margin[1]:
-				nerrBg = hBg.Integral(cut,100)/nBg
-				cutVal = cut
-				done = True
-				break
-		if done:
-			break
-	fout.WriteTObject(hSig,"hSig")
-	fout.WriteTObject(hBg,"hBg")
-	if plotMass:
+def evaluateZScore(probabilities,truth,prunedMass,makePlots=False):
+	aSig = probabilities[truth==1][:,1]
+	aBg = probabilities[truth==0][:,1]
+	aSig.sort()
+	cutVal = aSig[int(aSig.shape[0]/2)]
+	bgPassed = float(aBg[aBg>cutVal].shape[0])
+	zScore = bgPassed/aBg.shape[0]
+	if makePlots:
+		fout = root.TFile("outputHists.root","RECREATE")
+		hSig = root.TH1F("hSig","hSig",100,0.,1.)
+		hBg = root.TH1F("hBg","hBg",100,0.,1.)
+		for i in xrange(truth.shape[0]):
+			if truth[i]==1:
+				hSig.Fill(probabilities[i,1])
+			else:
+				hBg.Fill(probabilities[i,1])
+		fout.WriteTObject(hSig,"hSig")
+		fout.WriteTObject(hBg,"hBg")
 		fout.cd()
-		hMassSig = root.TH1F("hMassSig","hMassSig",100,0,200)
-		hMassBg = root.TH1F("hMassBg","hMassBg",100,0,200)
+		hMassSig = root.TH1F("hMassSig","hMassSig",100,0,300)
+		hMassBg = root.TH1F("hMassBg","hMassBg",100,0,300)
 		for i in xrange(truth.shape[0]):
 			if probabilities[i,1] > cutVal*0.01:
 				if truth[i]==1:
@@ -53,8 +44,8 @@ def evaluateZScore(probabilities,truth,prunedMass,plotMass=False):
 		hMassBg.Draw("same")
 		c1.SaveAs("mass.png")
 		fout.Write()
-	fout.Close()
-	return nerrBg
+		fout.Close()
+	return zScore
 
 class HiddenLayer(object):
 	def __init__(self,input,rng,nIn,nOut,W=None,b=None,sigmoid=T.tanh):
@@ -154,6 +145,13 @@ class NeuralNet(object):
 			p['b'] = l.b.get_value()
 			params.append(p)
 		return params
+	def initialize(self,parameterList):
+		if not len(parameterList)==(len(self.hiddenLayers)+1):
+			print "Could not initialize"
+			return
+		for l,p in zip(self.hiddenLayers+[self.outLayer],parameterList):
+			l.W.set_value(p['W'])
+			l.b.set_value(p['b'])
 	def testFcn(self,massBinned,trainY,trainX):
 		y = T.dvector('y')
 		varBinned = T.ivector('var')

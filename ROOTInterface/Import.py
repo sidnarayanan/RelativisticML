@@ -56,7 +56,7 @@ class TreeImporter(object):
       for var in self.varList:
         dataX[iE,m] = branchDict[var].GetValue()
         if np.isnan(dataX[iE,m]) or np.isinf(dataX[iE,m]):
-          dataX[iE,m] = -2 # -1 is default value for problems in computation
+          dataX[iE,m] = -999 # make it sufficiently different from values of ln(chi)
         m+=1
       for cVar in self.computedVars:
         func = cVar[0]
@@ -66,7 +66,7 @@ class TreeImporter(object):
           vals.append(branchDict[name].GetValue())
         dataX[iE,m] = func(vals)
         if np.isnan(dataX[iE,m]) or np.isinf(dataX[iE,m]):
-          dataX[iE,m] = -2
+          dataX[iE,m] = -999
         m+=1
     return dataX,dataY
 
