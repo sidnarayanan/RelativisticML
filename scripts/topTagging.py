@@ -24,20 +24,22 @@ msgFile = sys.stderr
 rng = np.random.RandomState()
 x = T.matrix('x')
 
-listOfRawVars = ["massSoftDrop","QGTag","telescopingIso","groomedIso"]
+listOfRawVars = ["QGTag","telescopingIso","groomedIso"]
 listOfComputedVars = [(divide,['tau3','tau2']),
-												(divide,['tau2','tau1']),
-												(np.log,['chi'])]
+						(divide,['tau2','tau1']),
+						(np.log,['chi'])]
 # listOfRawVars = ["iota0","iota1","iota2","iota3","iota4"]
 # listOfComputedVars = []
 nVars = len(listOfComputedVars) + len(listOfRawVars)
 
+dataPath = '/home/sid/scratch/data/topTagging_SDTopMass150/'
+
 if thingsToDo&1:
-	sigImporter = ROOTInterface.Import.TreeImporter('/home/sid/scratch/data/topTagging_SDTopMass150/signal_AK8fj.root','jets')
+	sigImporter = ROOTInterface.Import.TreeImporter(dataPath+'signal_AK8fj.root','jets')
 	sigImporter.addVarList(listOfRawVars)
 	for v in listOfComputedVars:
 		sigImporter.addComputedVar(v)
-	bgImporter = sigImporter.clone('/home/sid/scratch/data/topTagging_SDTopMass150/qcd_AK8fj.root','jets')
+	bgImporter = sigImporter.clone(dataPath+'qcd_AK8fj.root','jets')
 	sigX,sigY = sigImporter.loadTree(1,-1)
 	bgX,bgY = bgImporter.loadTree(0,-1)
 	dataX = np.vstack([sigX,bgX])
@@ -60,10 +62,10 @@ if thingsToDo&1:
 	sigImporter.addVarList(['massSoftDrop'])
 	bgImporter.addVarList(['massSoftDrop'])
 	mass = np.vstack([sigImporter.loadTree(0,-1)[0],
-										bgImporter.loadTree(0,-1)[0]])
+					  bgImporter.loadTree(0,-1)[0]])
 	massBinned = np.array([massBin(m) for m in mass])
 
-	with open("/home/sid/scratch/data/topTagging.pkl",'wb') as pklFile:
+	with open(dataPath+"compressed.pkl",'wb') as pklFile:
 		pickle.dump({'dataX':dataX,
 									'dataY':dataY,
 									'mass':mass, # for plotting
@@ -71,7 +73,7 @@ if thingsToDo&1:
 
 if thingsToDo&2:
 	if not(thingsToDo&1):
-		with open("/home/sid/scratch/data/topTagging.pkl",'rb') as pklFile:
+		with open(dataPath+"compressed.pkl",'rb') as pklFile:
 			d = pickle.load(pklFile)
 			dataX = d['dataX']
 			dataY = d['dataY']
@@ -80,8 +82,10 @@ if thingsToDo&2:
 	print dataX[:10]
 	nData = dataY.shape[0]
 	nTrain = nData*7/8
-	nValidate = nData*1/16
-	learningRate = .01
+	nTest = 1000
+	nValidate = nData-nTrain-nTest
+	# nValidate = nData*1/16
+	learningRate = .001
 	nSinceLastImprovement = 0
 	bestTestLoss = np.inf
 	sigTestLoss = np.inf
@@ -90,14 +94,14 @@ if thingsToDo&2:
 	nEpoch=1000
 	patienceBaseVal = 10000 # do at least this many iterations
 	patience = patienceBaseVal
-	patienceFactor = 1.5
+	patienceFactor = 1.1
 	significantImprovement = .995
 	done=False
 	nPerBatch=200
 
 	classifier = NN.NeuralNet(x,rng,[nVars,300,300,300,2])
-	trainer = classifier.getTrainer(0,0,"NLL")
-	# trainer = classifier.getRegularizedTrainer(0.3,"NLL+BGBinnedReg")
+	# trainer,loss = classifier.getTrainer(0,0,"NLL")
+	trainer,loss = classifier.getRegularizedTrainer(0.8,"NLL+BGBinnedReg")
 	print "Done with initialization!"
 
 	dataIndices = np.arange(nData)
@@ -127,11 +131,13 @@ if thingsToDo&2:
 			idx = trainIndices[i*nPerBatch:(i+1)*nPerBatch]
 			# print classifier.testFcn(massBinned[idx],dataY[idx],dataX[idx])
 			# sys.exit(-1)
-			# trainer(dataX[idx],dataY[idx],learningRate,massBinned[idx])
-			trainer(dataX[idx],dataY[idx],learningRate)
+			trainer(dataX[idx],dataY[idx],learningRate,massBinned[idx])
+			# trainer(dataX[idx],dataY[idx],learningRate)
 			if not iteration%50:
 				msgFile.write("Iteration: %i\n"%(iteration))
-				testLoss = NN.evaluateZScore(classifier.probabilities(dataX[testIndices]),dataY[testIndices],None,False)
+				# testLoss = loss(dataX[testIndices],dataY[testIndices])[0]
+				testLoss = loss(dataX[testIndices],dataY[testIndices],massBinned[testIndices])[0]
+				# testLoss = NN.evaluateZScore(classifier.probabilities(dataX[testIndices]),dataY[testIndices],None,False)
 				# testLoss = classifier.errors(dataX[testIndices],dataY[testIndices])
 				lossFile.write("%f\n"%(testLoss))
 				if testLoss < bestTestLoss:
@@ -147,7 +153,8 @@ if thingsToDo&2:
 				else:
 					nSinceLastImprovement+=1
 			iteration+=1
-			if iteration > patience:
+			# if iteration > patience:
+			if iteration > 1000:
 				done=True
 				break
 			if learningRate < 0.0000001:

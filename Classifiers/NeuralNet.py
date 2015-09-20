@@ -8,7 +8,6 @@ import ROOT as root
 
 theano.config.int_division = 'floatX'
 
-
 def evaluateZScore(probabilities,truth,prunedMass,makePlots=False):
 	aSig = probabilities[truth==1][:,1]
 	aBg = probabilities[truth==0][:,1]
@@ -20,22 +19,20 @@ def evaluateZScore(probabilities,truth,prunedMass,makePlots=False):
 		fout = root.TFile("outputHists.root","RECREATE")
 		hSig = root.TH1F("hSig","hSig",100,0.,1.)
 		hBg = root.TH1F("hBg","hBg",100,0.,1.)
-		for i in xrange(truth.shape[0]):
-			if truth[i]==1:
-				hSig.Fill(probabilities[i,1])
-			else:
-				hBg.Fill(probabilities[i,1])
-		fout.WriteTObject(hSig,"hSig")
-		fout.WriteTObject(hBg,"hBg")
-		fout.cd()
 		hMassSig = root.TH1F("hMassSig","hMassSig",100,0,300)
 		hMassBg = root.TH1F("hMassBg","hMassBg",100,0,300)
 		for i in xrange(truth.shape[0]):
-			if probabilities[i,1] > cutVal*0.01:
-				if truth[i]==1:
+			if truth[i]==1:
+				hSig.Fill(probabilities[i,1])
+				if probabilities[i,1] > cutVal:
 					hMassSig.Fill(prunedMass[i])
-				else:
+			else:
+				hBg.Fill(probabilities[i,1])
+				if probabilities[i,1] > cutVal:
 					hMassBg.Fill(prunedMass[i])
+		hBg.SetLineColor(2)
+		fout.WriteTObject(hSig,"hSig")
+		fout.WriteTObject(hBg,"hBg")
 		c1 = root.TCanvas()
 		hMassSig.SetNormFactor()
 		hMassSig.Draw("")
@@ -51,11 +48,10 @@ class HiddenLayer(object):
 	def __init__(self,input,rng,nIn,nOut,W=None,b=None,sigmoid=T.tanh):
 		if not W:
 			# initialize W and allocate it
-			W0 = np.asarray(rng.uniform(
-								low=-np.sqrt(6./(nIn+nOut)),
-								high=np.sqrt(6./(nIn+nOut)),
-								size=(nIn,nOut)
-							), dtype=theano.config.floatX)
+			W0 = np.asarray(rng.uniform(low=-np.sqrt(6./(nIn+nOut)),
+										high=np.sqrt(6./(nIn+nOut)),
+										size=(nIn,nOut)), 
+							dtype=theano.config.floatX)
 			if not sigmoid==T.tanh:
 				W0 = 4*W0
 			W = theano.shared(value=W0,name='W',borrow=True)
@@ -184,7 +180,15 @@ class NeuralNet(object):
 				allow_input_downcast=True,
 				on_unused_input='warn'
 			)
-		return trainer
+		evalLoss = theano.function(
+				inputs = [self.input,trainY,var],
+				outputs = [loss],
+				updates = { },
+				givens = { },
+				allow_input_downcast=True,
+				on_unused_input='warn'
+			)
+		return trainer,evalLoss
 	def getTrainer(self,L1Reg,L2Reg,errorType="NLL"):
 		trainY = T.ivector('y')
 		alpha = T.dscalar('a')
@@ -207,4 +211,12 @@ class NeuralNet(object):
 				givens = { },
 				allow_input_downcast=True
 			)
-		return trainer
+		evalLoss = theano.function(
+				inputs = [self.input,trainY],
+				outputs = [loss],
+				updates = { },
+				givens = { },
+				allow_input_downcast=True,
+				on_unused_input='warn'
+			)
+		return trainer,evalLoss

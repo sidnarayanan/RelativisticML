@@ -81,7 +81,7 @@ class Logistic(object):
     # baseHist = 0
     probs = self.P[T.arange(y.shape[0]),1]
     baseHist = T.bincount(varBinned,1-y)+0.01
-    selectedHist = T.bincount(varBinned,(1-y)*probs)+0.01
+    selectedHist = T.bincount(varBinned,(1-y)*probs)
     ratioHist = selectedHist/baseHist
     rVal = ratioHist - T.mean(ratioHist)
     # rVal = T.std(selectedHist/baseHist)
