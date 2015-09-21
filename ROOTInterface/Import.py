@@ -17,21 +17,22 @@ class TreeImporter(object):
         self.fIn = tfile
     self.tree = self.fIn.FindObjectAny(treeName)
   def clone(self,f,t):
-  	newImporter = TreeImporter(f,t)
-  	newImporter.resetCounter(self.counter)
-  	newImporter.addVarList(self.varList)
-  	for v in self.computedVars:
-  		newImporter.addComputedVar(v)
-  	return newImporter
+    newImporter = TreeImporter(f,t)
+    newImporter.resetCounter(self.counter)
+    for v in self.varList:
+      newImporter.addVar(v)
+    for v in self.computedVars:
+      newImporter.addComputedVar(v)
+    return newImporter
   def resetVars(self):
     self.varList = []
     self.computedVars = []
     self.dependencies = []
   def resetCounter(self,c=0):
     self.counter = c
-  def addVarList(self,varList):
-    self.varList += varList
-    self.dependencies += varList
+  def addVar(self,var):
+    self.varList.append(var)
+    self.dependencies.append(var)
   def addComputedVar(self,p):
     # p[1] should be a list of variable names in the tree
     # and p[0](p[1]) should be the desired computed variable

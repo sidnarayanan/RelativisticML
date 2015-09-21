@@ -6,6 +6,7 @@ from theano import config
 import theano.tensor as T
 import Classifiers.NeuralNet as NN
 import ROOTInterface.Import
+import ROOTInterface.Export
 import sys
 import ROOT as root # turned off to run on t3
 from os import fsync
@@ -24,11 +25,11 @@ msgFile = sys.stderr
 rng = np.random.RandomState()
 x = T.matrix('x')
 
-listOfRawVars = ["QGTag","telescopingIso","groomedIso"]
+listOfRawVars = ["massSoftDrop","QGTag","telescopingIso","groomedIso"]
 listOfComputedVars = [(divide,['tau3','tau2']),
 						(divide,['tau2','tau1']),
 						(np.log,['chi'])]
-# listOfRawVars = ["iota0","iota1","iota2","iota3","iota4"]
+listOfRawVars += ["iota0","iota1","iota2","iota3","iota4"]
 # listOfComputedVars = []
 nVars = len(listOfComputedVars) + len(listOfRawVars)
 
@@ -36,7 +37,8 @@ dataPath = '/home/sid/scratch/data/topTagging_SDTopMass150/'
 
 if thingsToDo&1:
 	sigImporter = ROOTInterface.Import.TreeImporter(dataPath+'signal_AK8fj.root','jets')
-	sigImporter.addVarList(listOfRawVars)
+	for v in listOfRawVars:
+		sigImporter.addVar(v)
 	for v in listOfComputedVars:
 		sigImporter.addComputedVar(v)
 	bgImporter = sigImporter.clone(dataPath+'qcd_AK8fj.root','jets')
@@ -48,7 +50,7 @@ if thingsToDo&1:
 	mu = dataX.mean(0)
 	sigma = dataX.std(0)
 	for i in xrange(sigma.shape[0]):
-		# for constant rows, do not offset
+		# for constant rows, do not scale
 		if not sigma[i]:
 			sigma[i] = 1
 			mu[i] = 0
@@ -59,8 +61,8 @@ if thingsToDo&1:
 	bgImporter.resetVars()
 	def massBin(a):
 		return bin(a,20,250)
-	sigImporter.addVarList(['massSoftDrop'])
-	bgImporter.addVarList(['massSoftDrop'])
+	sigImporter.addVar('massSoftDrop')
+	bgImporter.addVar('massSoftDrop')
 	mass = np.vstack([sigImporter.loadTree(0,-1)[0],
 					  bgImporter.loadTree(0,-1)[0]])
 	massBinned = np.array([massBin(m) for m in mass])
@@ -126,7 +128,7 @@ if thingsToDo&2:
 		for i in xrange(nTrain/nPerBatch):
 			if nSinceLastImprovement == 10:
 				nSinceLastImprovement=0
-				learningRate = learningRate*.8
+				learningRate = learningRate*.1
 				msgFile.write("\tLearningRate: %f\n"%(learningRate))
 			idx = trainIndices[i*nPerBatch:(i+1)*nPerBatch]
 			# print classifier.testFcn(massBinned[idx],dataY[idx],dataX[idx])
@@ -153,8 +155,8 @@ if thingsToDo&2:
 				else:
 					nSinceLastImprovement+=1
 			iteration+=1
-			# if iteration > patience:
-			if iteration > 1000:
+			if iteration > patience:
+			# if iteration > 1000:
 				done=True
 				break
 			if learningRate < 0.0000001:
@@ -167,4 +169,7 @@ if thingsToDo&2:
 	classifier.initialize(bestParameters)
 	print NN.evaluateZScore(classifier.probabilities(dataX[validateIndices]),dataY[validateIndices],mass[validateIndices],True)
 
-
+	with open("topTagger.icc","w") as fOut:
+		exporter = ROOTInterface.Export.NetworkExporter(classifier)
+		exporter.setFile(fOut)
+		exporter.export('topANN')

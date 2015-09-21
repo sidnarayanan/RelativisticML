@@ -80,11 +80,13 @@ class Logistic(object):
     '''
     # baseHist = 0
     probs = self.P[T.arange(y.shape[0]),1]
-    baseHist = T.bincount(varBinned,1-y)+0.01
+    baseHist = T.bincount(varBinned,1-y)
     selectedHist = T.bincount(varBinned,(1-y)*probs)
-    ratioHist = selectedHist/baseHist
+    indices = baseHist.nonzero()
+    # ratioHist = selectedHist/baseHist
+    ratioHist = selectedHist[indices]/baseHist[indices]
+    # return T.std(selectedHist/baseHist)
     rVal = ratioHist - T.mean(ratioHist)
-    # rVal = T.std(selectedHist/baseHist)
     return T.sum(rVal*rVal)
   def getTrainer(self,lossType="NLL"):
     '''
