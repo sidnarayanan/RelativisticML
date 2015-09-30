@@ -34,6 +34,14 @@ def evaluateZScore(probabilities,truth,prunedMass,makePlots=False):
 		fout.WriteTObject(hSig,"hSig")
 		fout.WriteTObject(hBg,"hBg")
 		c1 = root.TCanvas()
+		hSig.SetNormFactor()
+		hBg.SetNormFactor()
+		hBg.Draw("")
+		hSig.Draw("same")
+		c1.SaveAs('response.png')
+		c1.SaveAs('response.pdf')
+		c1.SaveSource('response.C')
+		c1.Clear()
 		hMassSig.SetNormFactor()
 		hMassSig.Draw("")
 		hMassBg.SetNormFactor()
@@ -109,10 +117,12 @@ class NeuralNet(object):
 			L2_sqr+=(hl.W**2).sum()
 		self.L2 = T.sqrt(L2_sqr)
 		self.NLL = self.outLayer.NLL
+		self.WeightedNLL = self.NLL
 		self.MSE = self.outLayer.MSE
 		self.BoverS2 = self.outLayer.BoverS2
 		self.BGReg = self.outLayer.BGReg
 		self.BGBinnedReg = self.outLayer.BGBinnedReg
+		self.BGBinnedYield = self.outLayer.BGBinnedYield
 		y = T.ivector('y')
 		self.errors = theano.function(
 				inputs=[self.input,y],
@@ -132,6 +142,8 @@ class NeuralNet(object):
 		for hl in self.hiddenLayers:
 			self.theta += [hl.W,hl.b]
 		self.theta += [self.outLayer.W,self.outLayer.b]
+	def setSignalWeight(self,signalWeight):
+		self.WeightedNLL = self.outLayer.WeightedNLL(signalWeight)
 	def getParameters(self):
 		# easy way of exporting network parameters
 		params=[]
@@ -166,6 +178,12 @@ class NeuralNet(object):
 			loss = self.NLL(trainY) + bgRegStrength * self.BGReg(trainY)
 		elif errorType=="NLL+BGBinnedReg":
 			loss = self.NLL(trainY) + bgRegStrength * self.BGBinnedReg(trainY,var)
+		elif errorType=="WeightedNLL+BGBinnedReg":
+			loss = self.WeightedNLL(trainY) + bgRegStrength * self.BGBinnedReg(trainY,var)
+		elif errorType=="NLL+BGBinnedYield":
+			loss = self.NLL(trainY) + bgRegStrength * self.BGBinnedYield(trainY,var)
+		elif errorType=="WeightedNLL+BGBinnedYield":
+			loss = self.WeightedNLL(trainY) + bgRegStrength * self.BGBinnedYield(trainY,var)
 		else:
 			return None
 		dtheta = [T.grad(cost=loss,wrt=x) for x in self.theta]
@@ -194,6 +212,8 @@ class NeuralNet(object):
 		alpha = T.dscalar('a')
 		if errorType=="NLL":
 			loss = self.NLL(trainY) + L1Reg*self.L1 + L2Reg*self.L2
+		elif errorType=="WeightedNLL":
+			loss = self.WeightedNLL(trainY)
 		elif errorType=="MSE":
 			loss = self.MSE(trainY)
 		elif errorType=="BoverS2":

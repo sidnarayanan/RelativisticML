@@ -5,7 +5,7 @@ def writeArray1(ar,name):
 	s=''
 	counter=0
 	for x in ar:
-		s+='%s[%i]=%f\n'%(name,counter,x)
+		s+='%s[%i]=%f;\n'%(name,counter,x)
 		counter+=1
         return s
 
@@ -16,7 +16,7 @@ def writeArray2(ar,name):
 	for x in ar:
 		counterY=0
 		for y in x:
-			s+='%s[%i][%i]=%f\n'%(name,counterX,counterY,y)
+			s+='%s[%i][%i]=%f;\n'%(name,counterX,counterY,y)
 			counterY+=1
 		counterX+=1
         return s
@@ -46,11 +46,11 @@ class NetworkExporter(object):
     	WName = '%s_W%i'%(name,counter)
     	bName = '%s_b%i'%(name,counter)
     	s = '''
-float **%s = new float*[%i];
+double **%s = new double*[%i];
 for (int i=0; i!=%s; ++i) {
-	%s[i] = new float[%i];
+	%s[i] = new double[%i];
 }
-float *%s = new float[%i];
+double *%s = new double[%i];
 '''%(WName,nIn,nIn,WName,nOut,bName,nOut)
     	s += writeArray1(p['b'],bName)
     	s += writeArray2(p['W'],WName)

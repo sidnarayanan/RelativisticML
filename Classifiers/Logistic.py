@@ -49,6 +49,12 @@ class Logistic(object):
     this assumes the classes are indexed 0...N
     '''
     return -T.mean(T.log(self.P)[T.arange(y.shape[0]),y])
+  def WeightedNLL(self,signalWeight):
+    '''
+    constructs a NLL function that weights the signal 
+    (can be used to balance MC yields)
+    '''
+    return lambda y : -T.mean(((signalWeight-1)*y+1)*T.log(self.P)[T.arange(y.shape[0]),y])
   def aNLL(self,y):
     '''
     Asymmetric NLL loss
@@ -87,6 +93,14 @@ class Logistic(object):
     ratioHist = selectedHist[indices]/baseHist[indices]
     # return T.std(selectedHist/baseHist)
     rVal = ratioHist - T.mean(ratioHist)
+    return T.sum(rVal*rVal)
+  def BGBinnedYield(self,y,varBinned):
+    '''
+    regularizes background yield in a binned variable
+    '''
+    probs = self.P[T.arange(y.shape[0]),1]
+    selectedHist = T.bincount(varBinned,(1-y)*probs)
+    rVal = selectedHist - T.mean(selectedHist)
     return T.sum(rVal*rVal)
   def getTrainer(self,lossType="NLL"):
     '''
