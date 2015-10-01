@@ -26,11 +26,12 @@ rng = np.random.RandomState()
 x = T.matrix('x')
 
 # listOfRawVars = []
-listOfRawVars = ["massSoftDrop","QGTag","groomedIso"]
+listOfRawVars = ["massSoftDrop","QGTag","maxSubjetBtag"]
 listOfComputedVars = [(divide,['tau3','tau2']),(divide,['tau2','tau1'])]
 nVars = len(listOfComputedVars) + len(listOfRawVars)
 
-dataPath = '/home/sid/scratch/data/topTagging_SDTopMass150/'
+# dataPath = '/home/sid/scratch/data/topTagging_SDTopMass150/'
+dataPath = '/home/sid/scratch/data/topTagging_SDTopWidth25/'
 
 if thingsToDo&1:
 	sigImporter = ROOTInterface.Import.TreeImporter(dataPath+'signal_AK8fj.root','jets')
@@ -91,8 +92,8 @@ if thingsToDo&2:
 	print dataX[:10]
 	nData = dataY.shape[0]
 
-	nTrain = nData*7/8
-	nTest = 1000
+	nTrain = nData*1/2-5000
+	nTest = 10000
 	nValidate = nData-nTrain-nTest
 	# nValidate = nData*1/16
 	learningRate = .01
@@ -109,9 +110,9 @@ if thingsToDo&2:
 	done=False
 	nPerBatch=200
 
-	classifier = NN.NeuralNet(x,rng,[nVars,nVars*5,nVars*5,nVars*5,2])
-	classifier.setSignalWeight(float(nBg)/nSig)
-	trainer,loss = classifier.getTrainer(0,0,"WeightedNLL")
+	classifier = NN.NeuralNet(x,rng,[nVars,nVars,2])
+	# classifier.setSignalWeight(float(nBg)/nSig)
+	trainer,loss = classifier.getTrainer(0,0,"NLL")
 	print "Done with initialization!"
 
 	dataIndices = np.arange(nData)
@@ -174,7 +175,7 @@ if thingsToDo&2:
 	classifier.initialize(bestParameters)
 	print NN.evaluateZScore(classifier.probabilities(dataX[validateIndices]),dataY[validateIndices],mass[validateIndices],True)
 
-	with open("bestParams.pkl",'wb') as pklFile:
+	with open("bestParams_simple.pkl",'wb') as pklFile:
 		pickle.dump(bestParameters,pklFile,-1)
 
 	with open("topTagger_simple.icc","w") as fOut:

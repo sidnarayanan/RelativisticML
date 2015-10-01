@@ -49,14 +49,17 @@ class Logistic(object):
     this assumes the classes are indexed 0...N
     '''
     return -T.mean(T.log(self.P)[T.arange(y.shape[0]),y])
-  def WeightedNLL(self,signalWeight):
+  def WeightedNLL(self):
     '''
     constructs a NLL function that weights the signal 
     (can be used to balance MC yields)
     '''
-    return lambda y : -T.mean(((signalWeight-1)*y+1)*T.log(self.P)[T.arange(y.shape[0]),y])
+    return lambda y,w : -T.mean(w*T.log(self.P)[T.arange(y.shape[0]),y])
+  def WindowedWeightedNLL(self):
+    return lambda y,w,mask : -T.mean(w*T.log(self.P)[T.arange(y.shape[0]),y]*mask)
   def aNLL(self,y):
     '''
+    OBSOLETE - Use WeightedNLL (more general)
     Asymmetric NLL loss
     gives more weight to classes with higher numbers
       (i.e. y=1 errors are penalized more than y=0)
@@ -100,8 +103,12 @@ class Logistic(object):
     '''
     probs = self.P[T.arange(y.shape[0]),1]
     selectedHist = T.bincount(varBinned,(1-y)*probs)
-    rVal = selectedHist - T.mean(selectedHist)
-    return T.sum(rVal*rVal)
+    rVal = (selectedHist - T.mean(selectedHist))/T.sum(selectedHist)
+    return T.mean(rVal*rVal)
+  def evalSelectedHist(self,y,varBinned):
+    probs = self.P[T.arange(y.shape[0]),1]
+    selectedHist = T.bincount(varBinned,(1-y)*probs)
+    return selectedHist
   def getTrainer(self,lossType="NLL"):
     '''
     return a function to do MBSGD on (trainX,trainY)

@@ -8,6 +8,7 @@ import ROOT as root
 
 theano.config.int_division = 'floatX'
 
+
 def evaluateZScore(probabilities,truth,prunedMass,makePlots=False):
 	aSig = probabilities[truth==1][:,1]
 	aBg = probabilities[truth==0][:,1]
@@ -15,39 +16,49 @@ def evaluateZScore(probabilities,truth,prunedMass,makePlots=False):
 	cutVal = aSig[int(aSig.shape[0]/2)]
 	bgPassed = float(aBg[aBg>cutVal].shape[0])
 	zScore = bgPassed/aBg.shape[0]
+	print "cutVal",cutVal
 	if makePlots:
+		c1 = root.TCanvas()
 		fout = root.TFile("outputHists.root","RECREATE")
 		hSig = root.TH1F("hSig","hSig",100,0.,1.)
 		hBg = root.TH1F("hBg","hBg",100,0.,1.)
 		hMassSig = root.TH1F("hMassSig","hMassSig",100,0,300)
 		hMassBg = root.TH1F("hMassBg","hMassBg",100,0,300)
-		for i in xrange(truth.shape[0]):
-			if truth[i]==1:
-				hSig.Fill(probabilities[i,1])
-				if probabilities[i,1] > cutVal:
-					hMassSig.Fill(prunedMass[i])
-			else:
-				hBg.Fill(probabilities[i,1])
-				if probabilities[i,1] > cutVal:
-					hMassBg.Fill(prunedMass[i])
+		hMassBg.SetLineColor(2)
+		for intCutVal in range(10):
+			hMassSig.Clear()
+			hMassBg.Clear()
+			c1.Clear()
+			floatCutVal = cutVal - 0.05 + intCutVal*0.01
+			print floatCutVal
+			# floatCutVal = cutVal if intCutVal==0 else intCutVal*0.1
+			for i in xrange(truth.shape[0]):
+				if truth[i]==1:
+					if intCutVal==0:
+						hSig.Fill(probabilities[i,1])
+					if probabilities[i,1] > floatCutVal:
+						hMassSig.Fill(prunedMass[i])
+				else:
+					if intCutVal==0:
+						hBg.Fill(probabilities[i,1])
+					if probabilities[i,1] > floatCutVal:
+						hMassBg.Fill(prunedMass[i])
+			hMassSig.SetNormFactor()
+			hMassSig.Draw("")
+			hMassBg.SetNormFactor()
+			hMassBg.Draw("same")
+			c1.SaveAs("mass_%i.png"%(intCutVal))
 		hBg.SetLineColor(2)
 		fout.WriteTObject(hSig,"hSig")
 		fout.WriteTObject(hBg,"hBg")
-		c1 = root.TCanvas()
 		hSig.SetNormFactor()
 		hBg.SetNormFactor()
-		hBg.Draw("")
-		hSig.Draw("same")
+		hSig.Draw("")
+		hBg.Draw("same")
 		c1.SaveAs('response.png')
 		c1.SaveAs('response.pdf')
 		c1.SaveSource('response.C')
 		c1.Clear()
-		hMassSig.SetNormFactor()
-		hMassSig.Draw("")
-		hMassBg.SetNormFactor()
-		hMassBg.SetLineColor(2)
-		hMassBg.Draw("same")
-		c1.SaveAs("mass.png")
 		fout.Write()
 		fout.Close()
 	return zScore
@@ -142,8 +153,8 @@ class NeuralNet(object):
 		for hl in self.hiddenLayers:
 			self.theta += [hl.W,hl.b]
 		self.theta += [self.outLayer.W,self.outLayer.b]
-	def setSignalWeight(self,signalWeight):
-		self.WeightedNLL = self.outLayer.WeightedNLL(signalWeight)
+		self.WeightedNLL = self.outLayer.WeightedNLL()
+		self.WWNLL = self.outLayer.WindowedWeightedNLL()
 	def getParameters(self):
 		# easy way of exporting network parameters
 		params=[]
@@ -170,20 +181,82 @@ class NeuralNet(object):
 		return (rTensor).eval({y:trainY, varBinned:massBinned, self.input:trainX})
 	def evalNLL(self,testX,testY):
 		return T.log(self.outLayer.P).eval({self.input:testX})
+	def getWindowedTrainer(self,bgRegStrength=0,errorType="WWNLL+BGBinnedYield"):
+		trainY = T.ivector('y')
+		var = T.ivector('var')
+		mask = T.ivector('mask')
+		alpha = T.dscalar('a')
+		weight = T.dvector('weight')
+		reg = None
+		if errorType=="WWNLL+BGBinnedYield":
+			loss = self.WWNLL(trainY,mask,weight) + bgRegStrength * self.BGBinnedYield(trainY,var)
+			reg = self.BGBinnedYield(trainY,var)
+		elif errorType=="WWNLL+BGBinnedReg":
+			loss = self.WWNLL(trainY,mask,weight) + bgRegStrength * self.BGBinnedReg(trainY,var)
+			reg = self.BGBinnedReg(trainY,var)
+		elif errorType=="WWNLL":
+			loss = self.WWNLL(trainY,mask,weight)
+		else:
+			return None
+		dtheta = [T.grad(cost=loss,wrt=x) for x in self.theta]
+		updates = [(self.theta[i],
+					self.theta[i]-alpha*dtheta[i])
+					for i in range(len(dtheta))]
+		trainer = theano.function(
+				inputs = [self.input,trainY,alpha,var,mask,weight],
+				outputs = [loss],
+				updates = updates,
+				givens = { },
+				allow_input_downcast=True,
+				on_unused_input='warn'
+			)
+		evalLoss = theano.function(
+				inputs = [self.input,trainY,var,mask,weight],
+				outputs = [loss],
+				updates = { },
+				givens = { },
+				allow_input_downcast=True,
+				on_unused_input='warn'
+			)
+		if reg:
+			evalReg = theano.function(
+				inputs = [self.input,trainY,var],
+				outputs = [reg],
+				updates = { },
+				givens = { },
+				allow_input_downcast=True,
+				on_unused_input='warn'
+			)
+		else:
+			evalReg = None
+		self.evalSelectedHist = theano.function(
+					inputs = [self.input,trainY,var],
+					outputs = [self.outLayer.evalSelectedHist(trainY,var)],
+					updates = { },
+					givens = { },
+					allow_input_downcast=True,
+					on_unused_input='warn'
+			)
+		return trainer,evalLoss,evalReg
 	def getRegularizedTrainer(self,bgRegStrength=0, errorType="NLL+BGBinnedReg"):
 		trainY = T.ivector('y')
 		var = T.ivector('var')
 		alpha = T.dscalar('a')
+		reg = None
 		if errorType=="NLL+BGReg":
 			loss = self.NLL(trainY) + bgRegStrength * self.BGReg(trainY)
 		elif errorType=="NLL+BGBinnedReg":
 			loss = self.NLL(trainY) + bgRegStrength * self.BGBinnedReg(trainY,var)
 		elif errorType=="WeightedNLL+BGBinnedReg":
 			loss = self.WeightedNLL(trainY) + bgRegStrength * self.BGBinnedReg(trainY,var)
+			reg = self.BGBinnedReg(trainY,var)
 		elif errorType=="NLL+BGBinnedYield":
 			loss = self.NLL(trainY) + bgRegStrength * self.BGBinnedYield(trainY,var)
 		elif errorType=="WeightedNLL+BGBinnedYield":
 			loss = self.WeightedNLL(trainY) + bgRegStrength * self.BGBinnedYield(trainY,var)
+			reg = self.BGBinnedYield(trainY,var)
+		elif errorType=="WeightedNLL":
+			loss = self.WeightedNLL(trainY)
 		else:
 			return None
 		dtheta = [T.grad(cost=loss,wrt=x) for x in self.theta]
@@ -206,7 +279,26 @@ class NeuralNet(object):
 				allow_input_downcast=True,
 				on_unused_input='warn'
 			)
-		return trainer,evalLoss
+		self.evalSelectedHist = theano.function(
+					inputs = [self.input,trainY,var],
+					outputs = [self.outLayer.evalSelectedHist(trainY,var)],
+					updates = { },
+					givens = { },
+					allow_input_downcast=True,
+					on_unused_input='warn'
+			)
+		if reg:
+			evalReg = theano.function(
+				inputs = [self.input,trainY,var],
+				outputs = [reg],
+				updates = { },
+				givens = { },
+				allow_input_downcast=True,
+				on_unused_input='warn'
+			)
+		else:
+			evalReg = None
+		return trainer,evalLoss,evalReg
 	def getTrainer(self,L1Reg,L2Reg,errorType="NLL"):
 		trainY = T.ivector('y')
 		alpha = T.dscalar('a')
