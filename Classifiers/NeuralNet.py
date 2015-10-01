@@ -24,12 +24,18 @@ def evaluateZScore(probabilities,truth,prunedMass,makePlots=False):
 		hBg = root.TH1F("hBg","hBg",100,0.,1.)
 		hMassSig = root.TH1F("hMassSig","hMassSig",100,0,300)
 		hMassBg = root.TH1F("hMassBg","hMassBg",100,0,300)
+		hMassSig.GetXaxis().SetTitle('mSD [GeV]')
+		hMassBg.GetXaxis().SetTitle('mSD [GeV]')
+		hMassSig.GetYaxis().SetTitle('a.u.')
+		hMassBg.GetYaxis().SetTitle('a.u.')
+		hMassSig.SetStats(0)
+		hMassBg.SetStats(0)
 		hMassBg.SetLineColor(2)
-		for intCutVal in range(10):
+		for intCutVal in range(1):
 			hMassSig.Clear()
 			hMassBg.Clear()
 			c1.Clear()
-			floatCutVal = cutVal - 0.05 + intCutVal*0.01
+			floatCutVal = cutVal + intCutVal*0.01
 			print floatCutVal
 			# floatCutVal = cutVal if intCutVal==0 else intCutVal*0.1
 			for i in xrange(truth.shape[0]):
@@ -47,7 +53,7 @@ def evaluateZScore(probabilities,truth,prunedMass,makePlots=False):
 			hMassSig.Draw("")
 			hMassBg.SetNormFactor()
 			hMassBg.Draw("same")
-			c1.SaveAs("mass_%i.png"%(intCutVal))
+			c1.SaveAs("mass_%i.pdf"%(intCutVal))
 		hBg.SetLineColor(2)
 		fout.WriteTObject(hSig,"hSig")
 		fout.WriteTObject(hBg,"hBg")

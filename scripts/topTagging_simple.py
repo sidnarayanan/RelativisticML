@@ -110,7 +110,7 @@ if thingsToDo&2:
 	done=False
 	nPerBatch=200
 
-	classifier = NN.NeuralNet(x,rng,[nVars,nVars,2])
+	classifier = NN.NeuralNet(x,rng,[nVars,nVars*5,nVars*5,nVars*5,nVars*5,nVars*5,nVars*5,nVars*5,2])
 	# classifier.setSignalWeight(float(nBg)/nSig)
 	trainer,loss = classifier.getTrainer(0,0,"NLL")
 	print "Done with initialization!"
@@ -165,7 +165,7 @@ if thingsToDo&2:
 			# if iteration > 1000:
 				done=True
 				break
-			if learningRate <= 0.00001:
+			if learningRate <= 0.0000001:
 				done = True
 				break
 		if done:
