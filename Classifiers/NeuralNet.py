@@ -134,7 +134,6 @@ class NeuralNet(object):
 			L2_sqr+=(hl.W**2).sum()
 		self.L2 = T.sqrt(L2_sqr)
 		self.NLL = self.outLayer.NLL
-		self.WeightedNLL = self.NLL
 		self.MSE = self.outLayer.MSE
 		self.BoverS2 = self.outLayer.BoverS2
 		self.BGReg = self.outLayer.BGReg
@@ -308,10 +307,11 @@ class NeuralNet(object):
 	def getTrainer(self,L1Reg,L2Reg,errorType="NLL"):
 		trainY = T.ivector('y')
 		alpha = T.dscalar('a')
+		weight = T.dvector('weight')
 		if errorType=="NLL":
 			loss = self.NLL(trainY) + L1Reg*self.L1 + L2Reg*self.L2
 		elif errorType=="WeightedNLL":
-			loss = self.WeightedNLL(trainY)
+			loss = self.WeightedNLL(trainY,weight)
 		elif errorType=="MSE":
 			loss = self.MSE(trainY)
 		elif errorType=="BoverS2":
@@ -322,19 +322,37 @@ class NeuralNet(object):
 		updates = [(self.theta[i],
 					self.theta[i]-alpha*dtheta[i])
 					for i in range(len(dtheta))]
-		trainer = theano.function(
+		if errorType=="WeightedNLL":
+			trainer = theano.function(
+				inputs = [self.input,trainY,alpha,weight],
+				outputs = [loss],
+				updates = updates,
+				givens = { },
+				allow_input_downcast=True,
+				on_unused_input='warn'
+			)
+			evalLoss = theano.function(
+					inputs = [self.input,trainY,weight],
+					outputs = [loss],
+					updates = { },
+					givens = { },
+					allow_input_downcast=True,
+					on_unused_input='warn'
+				)
+		else:
+			trainer = theano.function(
 				inputs = [self.input,trainY,alpha],
 				outputs = [loss],
 				updates = updates,
 				givens = { },
 				allow_input_downcast=True
 			)
-		evalLoss = theano.function(
-				inputs = [self.input,trainY],
-				outputs = [loss],
-				updates = { },
-				givens = { },
-				allow_input_downcast=True,
-				on_unused_input='warn'
-			)
+			evalLoss = theano.function(
+					inputs = [self.input,trainY],
+					outputs = [loss],
+					updates = { },
+					givens = { },
+					allow_input_downcast=True,
+					on_unused_input='warn'
+				)
 		return trainer,evalLoss

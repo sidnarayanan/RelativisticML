@@ -26,14 +26,12 @@ rng = np.random.RandomState()
 x = T.matrix('x')
 
 # listOfRawVars = []
-listOfRawVars = ["massSoftDrop","QGTag","maxSubjetBtag","logchi","QjetVol"]
+listOfRawVars = ["massSoftDrop","QGTag","maxSubjetBtag"]
 listOfComputedVars = [(divide,['tau3','tau2'])]
 nVars = len(listOfComputedVars) + len(listOfRawVars)
 
-# dataPath = '/home/sid/scratch/data/topTagging_SDTopMass150/'
-# dataPath = '/home/snarayan/cms/root/topTagging/'
+# dataPath = '/home/sid/scratch/data/topTagging_SDTopWidth25/'
 dataPath = '/home/sid/scratch/data/ak8fj/'
-
 
 if thingsToDo&1:
 	sigImporter = ROOTInterface.Import.TreeImporter(dataPath+'signal_AK8fj.root','jets')
@@ -70,13 +68,6 @@ if thingsToDo&1:
 	mass = np.vstack([sigImporter.loadTree(0,-1)[0],
 					  bgImporter.loadTree(0,-1)[0]])
 	massBinned = np.array([massBin(m) for m in mass])
-
-	sigImporter = ROOTInterface.Import.TreeImporter(dataPath+'signal_weights_AK8fj.root','weights')
-	bgImporter = ROOTInterface.Import.TreeImporter(dataPath+'qcd_weights_AK8fj.root','weights')
-	sigImporter.addVar('weight')
-	bgImporter.addVar('weight')
-	weight = np.vstack([sigImporter.loadTree(0,-1)[0]*nBg,
-					  	bgImporter.loadTree(0,-1)[0]]*nSig)
 	
 	with open(dataPath+"compressed_SD.pkl",'wb') as pklFile:
 		pickle.dump({'nSig':nSig,  'nBg':nBg, 
@@ -85,12 +76,11 @@ if thingsToDo&1:
 									'mass':mass, # for plotting
 								 	'massBinned':massBinned,
 								 	'mu':mu,
-								 	'sigma':sigma,
-								 	'weights':weight},pklFile,-1)
+								 	'sigma':sigma},pklFile,-1)
 
 if thingsToDo&2:
 	if not(thingsToDo&1):
-		with open(dataPath+"compressed_SD.pkl",'rb') as pklFile:
+		with open(dataPath+"compressed.pkl",'rb') as pklFile:
 			d = pickle.load(pklFile)
 			dataX = d['dataX']
 			dataY = d['dataY']
@@ -98,12 +88,10 @@ if thingsToDo&2:
 			mass = d['mass']
 			nSig = d['nSig']
 			nBg = d['nBg']
-			weight = d['weights']
 	print dataX[:10]
-	# weight = weight*10000.
 	nData = dataY.shape[0]
 
-	nTrain = nData*3/4-5000
+	nTrain = nData*1/2-5000
 	nTest = 10000
 	nValidate = nData-nTrain-nTest
 	# nValidate = nData*1/16
@@ -121,9 +109,8 @@ if thingsToDo&2:
 	done=False
 	nPerBatch=200
 
-	# dimensions
-	hiddenSize = nVars*4
-	nHidden = 10
+	hiddenSize = nVars*3
+	nHidden = 5
 	layers = [nVars]
 	for i in xrange(nHidden):
 		layers.append(hiddenSize)
@@ -153,7 +140,7 @@ if thingsToDo&2:
 		np.random.shuffle(trainIndices) # randomize learning order
 		msgFile.write("Epoch: %i\n"%(epoch))
 		for i in xrange(nTrain/nPerBatch):
-			if nSinceLastImprovement == 10:
+			if nSinceLastImprovement == 5:
 				nSinceLastImprovement=0
 				learningRate = learningRate*.1
 				msgFile.write("\tLearningRate: %f\n"%(learningRate))
