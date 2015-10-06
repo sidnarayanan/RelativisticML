@@ -1,6 +1,8 @@
 import numpy as np
 from ROOT import TFile, TTree, TH1F, gPad
 from sys import exit
+import multiprocessing as mp
+from time import sleep
 
 class TreeImporter(object):
   """kinda like TChain, but for numpy arrays.
@@ -52,6 +54,48 @@ class TreeImporter(object):
     # and p[0](p[1]) should be the desired computed variable
     self.computedVars.append((p[0],p[1]))
     self.dependencies += p[1]
+  def loadTreeMultithreaded(self,truthValue,nEvents=-1,nProc=4):
+    leaves = self.tree.GetListOfLeaves()
+    branchDict = {}
+    for i in xrange(leaves.GetEntries()):
+      leaf = leaves.At(i)
+      if leaf.GetName() in self.dependencies:
+        branchDict[leaf.GetName()] = leaf
+    # figure out which events to load
+    if nEvents<0:
+      nEvents = np.inf
+    nEvents = min(nEvents,self.tree.GetEntries()-self.counter)
+    nEventsPerJob = float(nEvents)/nProc
+    if not (nEventsPerJob==int(nEventsPerJob)):
+      nEventsPerJob = int(nEventsPerJob)+1
+    else:
+      nEventsPerJob = int(nEventsPerJob)
+    # setup multiprocessing stuff
+    jobs = []
+    q = {}
+    for iJ in xrange(nProc):
+      jobs.append(mp.Process(target=self.__coreLoadTree, args=(truthValue,nEventsPerJob,nEventsPerJob*iJ+self.counter,branchDict,q)))
+    for j in jobs:
+      j.start()
+      sleep(1)
+    first = True
+    for j in jobs:
+      if first:
+        j.join()
+        first=False
+      else:
+        j.join()
+    # combine result of output
+    xVals = []
+    yVals = []
+    for i,vals in q.iteritems():
+      # vals = q.get()
+      # if not vals:
+      #   print "job did not finish, increase wait time!"
+      #   exit(-1)
+      xVals.append(vals[0])
+      yVals.append(vals[1])
+    return np.vstack(xVals),np.hstack(yVals)
   def loadTree(self,truthValue,nEvents=-1):
     leaves = self.tree.GetListOfLeaves()
     branchDict = {}
@@ -63,13 +107,17 @@ class TreeImporter(object):
     if nEvents<0:
       nEvents = np.inf
     nEvents = min(nEvents,self.tree.GetEntries()-self.counter)
+    return self.__coreLoadTree(truthValue,nEvents,self.counter,branchDict)
+  def __coreLoadTree(self,truthValue,nEvents,counter,branchDict,queue=None):
+    nEvents = min(nEvents,self.tree.GetEntries()-counter)
     # allocate space
     dataX = np.empty([nEvents,len(self.varList)+len(self.computedVars)])
     dataY = np.ones(nEvents) if truthValue==1 else np.zeros(nEvents) # faster than multiplying if only {0,1}
     # get iterator
-    entryIter = xrange(self.counter,self.counter+nEvents)
+    entryIter = xrange(0,nEvents)
     for iE in entryIter:
-      self.tree.GetEntry(iE)
+      # print counter,iE+counter
+      self.tree.GetEntry(iE+counter)
       m = 0
       isGood = True
       for var in self.varList:
@@ -87,5 +135,9 @@ class TreeImporter(object):
         if np.isnan(dataX[iE,m]) or np.isinf(dataX[iE,m]):
           dataX[iE,m] = -99 # sufficiently different from ln chi
         m+=1
-    return dataX,dataY
+    if not(queue==None):
+      queue[counter] = (dataX,dataY)
+      # queue.put((dataX,dataY))
+    else:
+    	return dataX,dataY
 

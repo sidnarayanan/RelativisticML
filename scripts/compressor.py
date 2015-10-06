@@ -4,26 +4,24 @@ import cPickle as pickle
 import numpy as np
 import ROOTInterface.Import
 import ROOTInterface.Export
-import sys
-import ROOT as root # turned off to run on t3
-from os import fsync
+# import sys
+# import ROOT as root # not need for compressor
+# from os import fsync
 
 nEvents = -1
+doMultiThread = False
 
 def divide(a):
 	return a[0]/a[1]
 def bin(a,b,m):
 	return min(int(a[0]/b),m)
 
-lossFile = sys.stdout
-msgFile = sys.stderr
-
 print "starting!"
 
 rng = np.random.RandomState()
 
 # listOfRawVars = []
-listOfRawVars = ["massSoftDrop","QGTag","logchi","QjetVol"]
+listOfRawVars = ["massSoftDrop","QGTag","QjetVol","groomedIso"]
 listOfComputedVars = [(divide,['tau3','tau2'])]
 nVars = len(listOfComputedVars) + len(listOfRawVars)
 
@@ -41,12 +39,18 @@ bgImporter = sigImporter.clone(dataPath+'qcd_CA15fj.root','jets')
 
 print "finished setting up TreeImporters"
 
-sigX,sigY = sigImporter.loadTree(1,nEvents)
+if doMultiThread:
+	sigX,sigY = sigImporter.loadTreeMultithreaded(1,nEvents)
+else:
+	sigX,sigY = sigImporter.loadTree(1,nEvents)
 nSig = sigY.shape[0]
 print '\tloaded %i signal'%(nSig)
-bgX,bgY = bgImporter.loadTree(0,nEvents)
+if doMultiThread:
+	bgX,bgY = bgImporter.loadTreeMultithreaded(0,nEvents)
+else:
+	bgX,bgY = bgImporter.loadTree(0,nEvents)
 nBg = bgY.shape[0]
-print '\tloaded %i background'(nBg)
+print '\tloaded %i background'%(nBg)
 dataX = np.vstack([sigX,bgX])
 dataY = np.hstack([sigY,bgY])
 
@@ -76,8 +80,12 @@ sigImporter.addVar('eta')
 bgImporter.addVar('massSoftDrop')
 bgImporter.addVar('pt')
 bgImporter.addVar('eta')
-kinematics = np.vstack([sigImporter.loadTree(0,nEvents)[0],
-				  bgImporter.loadTree(0,nEvents)][0])
+if doMultiThread:
+	kinematics = np.vstack([sigImporter.loadTreeMultithreaded(0,nEvents)[0],
+						  bgImporter.loadTreeMultithreaded(0,nEvents)][0])
+else:
+	kinematics = np.vstack([sigImporter.loadTree(0,nEvents)[0],
+						  bgImporter.loadTree(0,nEvents)][0])
 # massBinned = np.array([massBin([m]) for m in kinematics[:,0]])
 
 print 'finished loading kinematics'
@@ -89,7 +97,7 @@ print 'finished loading kinematics'
 # weight = np.vstack([sigImporter.loadTree(0,nEvents)[0]*nBg,
 # 				  	bgImporter.loadTree(0,nEvents)[0]]*nSig)
 
-with open(dataPath+"compressed_SD.pkl",'wb') as pklFile:
+with open(dataPath+"compressed.pkl",'wb') as pklFile:
 	pickle.dump({'nSig':nSig,  'nBg':nBg, 
 								'dataX':dataX,
 								'dataY':dataY,
