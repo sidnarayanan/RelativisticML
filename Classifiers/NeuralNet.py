@@ -17,12 +17,27 @@ def evaluateZScore(probabilities,truth,prunedMass,makePlots=False):
 			hSig.Fill(probabilities[i,1])
 		else:
 			hBg.Fill(probabilities[i,1])
-	aSig = probabilities[truth==1][:,1]
-	aBg = probabilities[truth==0][:,1]
-	aSig.sort()
-	cutVal = aSig[int(aSig.shape[0]/2)]
-	bgPassed = float(aBg[aBg>cutVal].shape[0])
-	zScore = bgPassed/aBg.shape[0]
+	nSig = hSig.Integral()
+	nBg = hBg.Integral()
+	cutVal = 1
+	done = False
+	cumulativeIntegral=0.
+	for margin in [(.49,.51),(.45,.55),(.4,.6)]:
+		for i in xrange(100,0,-1):
+			cumulativeIntegral += hSig.GetBinContent(i)
+			if margin[0]<cumulativeIntegral/nSig<margin[1]:
+				cutVal = i*0.01
+				done = True
+				break
+			if done:
+				break
+	zScore = hBg.Integral(int(cutVal*100),100)/nBg
+	# aSig = probabilities[truth==1][:,1]
+	# aBg = probabilities[truth==0][:,1]
+	# aSig.sort()
+	# cutVal = aSig[int(aSig.shape[0]/2)]
+	# bgPassed = float(aBg[aBg>cutVal].shape[0])
+	# zScore = bgPassed/aBg.shape[0]
 	print "cutVal",cutVal
 	if makePlots:
 		c1 = root.TCanvas()
@@ -41,7 +56,7 @@ def evaluateZScore(probabilities,truth,prunedMass,makePlots=False):
 			hMassBg.Clear()
 			c1.Clear()
 			floatCutVal = cutVal + intCutVal*0.01
-			print floatCutVal
+			# print floatCutVal
 			# floatCutVal = cutVal if intCutVal==0 else intCutVal*0.1
 			for i in xrange(truth.shape[0]):
 				if probabilities[i,1] > floatCutVal:
