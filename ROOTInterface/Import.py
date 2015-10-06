@@ -72,12 +72,13 @@ class TreeImporter(object):
       nEventsPerJob = int(nEventsPerJob)
     # setup multiprocessing stuff
     jobs = []
-    q = {}
+    manager = mp.Manager()
+    q = manager.dict()
     for iJ in xrange(nProc):
       jobs.append(mp.Process(target=self.__coreLoadTree, args=(truthValue,nEventsPerJob,nEventsPerJob*iJ+self.counter,branchDict,q)))
     for j in jobs:
       j.start()
-      sleep(1)
+      sleep(10)
     first = True
     for j in jobs:
       if first:
@@ -88,7 +89,10 @@ class TreeImporter(object):
     # combine result of output
     xVals = []
     yVals = []
-    for i,vals in q.iteritems():
+    for iJ in xrange(nProc):
+      vals = q[nEventsPerJob*iJ+self.counter]
+      # print 'hello'
+      # print vals
       # vals = q.get()
       # if not vals:
       #   print "job did not finish, increase wait time!"

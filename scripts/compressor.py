@@ -9,7 +9,7 @@ import ROOTInterface.Export
 # from os import fsync
 
 nEvents = -1
-doMultiThread = False
+doMultiThread = True
 
 def divide(a):
 	return a[0]/a[1]
@@ -31,8 +31,8 @@ for f,v,n in listOfComputedVars:
 	listOfRawVarsNames.append(n)
 
 # dataPath = '/home/sid/scratch/data/topTagging_SDTopMass150/'
-dataPath = '/home/snarayan/cms/root/topTagging_CA15/'
-# dataPath = '/home/sid/scratch/data/ak8fj/'
+# dataPath = '/home/snarayan/cms/root/topTagging_CA15/'
+dataPath = '/home/sid/scratch/data/topTagging_CA15/'
 
 # first tagging variables
 sigImporter = ROOTInterface.Import.TreeImporter(dataPath+'signal_CA15fj.root','jets')
@@ -59,7 +59,7 @@ print '\tloaded %i background'%(nBg)
 dataX = np.vstack([sigX,bgX])
 dataY = np.hstack([sigY,bgY])
 
-print 'finished loading dataX and dataY'
+print 'finished loading dataX and dataY: %i events'%(dataY.shape[0])
 
 mu = dataX.mean(0)
 sigma = dataX.std(0)
