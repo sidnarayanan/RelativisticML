@@ -10,6 +10,13 @@ theano.config.int_division = 'floatX'
 
 
 def evaluateZScore(probabilities,truth,prunedMass,makePlots=False):
+	hSig = root.TH1F("hSig","hSig",100,0.,1.)
+	hBg = root.TH1F("hBg","hBg",100,0.,1.)
+	for i in xrange(truth.shape[0]):
+		if truth[i]==0:
+			hSig.Fill(probabilities[i,1])
+		else:
+			hBg.Fill(probabilities[i,1])
 	aSig = probabilities[truth==1][:,1]
 	aBg = probabilities[truth==0][:,1]
 	aSig.sort()
@@ -20,8 +27,6 @@ def evaluateZScore(probabilities,truth,prunedMass,makePlots=False):
 	if makePlots:
 		c1 = root.TCanvas()
 		fout = root.TFile("outputHists.root","RECREATE")
-		hSig = root.TH1F("hSig","hSig",100,0.,1.)
-		hBg = root.TH1F("hBg","hBg",100,0.,1.)
 		hMassSig = root.TH1F("hMassSig","hMassSig",100,0,300)
 		hMassBg = root.TH1F("hMassBg","hMassBg",100,0,300)
 		hMassSig.GetXaxis().SetTitle('mSD [GeV]')
@@ -39,16 +44,11 @@ def evaluateZScore(probabilities,truth,prunedMass,makePlots=False):
 			print floatCutVal
 			# floatCutVal = cutVal if intCutVal==0 else intCutVal*0.1
 			for i in xrange(truth.shape[0]):
-				if truth[i]==1:
-					if intCutVal==0:
-						hSig.Fill(probabilities[i,1])
-					if probabilities[i,1] > floatCutVal:
-						hMassSig.Fill(prunedMass[i])
-				else:
-					if intCutVal==0:
-						hBg.Fill(probabilities[i,1])
-					if probabilities[i,1] > floatCutVal:
-						hMassBg.Fill(prunedMass[i])
+				if probabilities[i,1] > floatCutVal:
+					if truth[i]==1:
+							hMassSig.Fill(prunedMass[i])
+					else:
+							hMassBg.Fill(prunedMass[i])
 			hMassSig.SetNormFactor()
 			hMassSig.Draw("")
 			hMassBg.SetNormFactor()

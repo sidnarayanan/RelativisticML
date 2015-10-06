@@ -22,8 +22,13 @@ rng = np.random.RandomState()
 
 # listOfRawVars = []
 listOfRawVars = ["massSoftDrop","QGTag","QjetVol","groomedIso"]
-listOfComputedVars = [(divide,['tau3','tau2'])]
+listOfComputedVars = [(divide,['tau3','tau2'],'tau32')] # third property is short name
 nVars = len(listOfComputedVars) + len(listOfRawVars)
+listOfRawVarsNames = []
+for v in listOfRawVars:
+	listOfRawVarsNames.append(v)
+for f,v,n in listOfComputedVars:
+	listOfRawVarsNames.append(n)
 
 # dataPath = '/home/sid/scratch/data/topTagging_SDTopMass150/'
 dataPath = '/home/snarayan/cms/root/topTagging_CA15/'
@@ -72,6 +77,8 @@ print "sample sigma:",sigma
 
 sigImporter.resetVars()
 bgImporter.resetVars()
+sigImporter.resetCounter()
+bgImporter.resetCounter()
 def massBin(a):
 	return bin(a,20,250)
 sigImporter.addVar('massSoftDrop')
@@ -81,14 +88,16 @@ bgImporter.addVar('massSoftDrop')
 bgImporter.addVar('pt')
 bgImporter.addVar('eta')
 if doMultiThread:
-	kinematics = np.vstack([sigImporter.loadTreeMultithreaded(0,nEvents)[0],
-						  bgImporter.loadTreeMultithreaded(0,nEvents)][0])
+	sigKinematics = sigImporter.loadTreeMultithreaded(0,nEvents)[0]
+	bgKinematics = bgImporter.loadTreeMultithreaded(0,nEvents)[0]
+	kinematics = np.vstack([sigKinematics,bgKinematics])
 else:
-	kinematics = np.vstack([sigImporter.loadTree(0,nEvents)[0],
-						  bgImporter.loadTree(0,nEvents)][0])
+	sigKinematics = sigImporter.loadTree(0,nEvents)[0]
+	bgKinematics = bgImporter.loadTree(0,nEvents)[0]
+	kinematics = np.vstack([sigKinematics,bgKinematics])
 # massBinned = np.array([massBin([m]) for m in kinematics[:,0]])
 
-print 'finished loading kinematics'
+print 'finished loading %i kinematics'%(kinematics.shape[0])
 
 # sigImporter = ROOTInterface.Import.TreeImporter(dataPath+'signal_weights_CA15fj.root','weights')
 # bgImporter = ROOTInterface.Import.TreeImporter(dataPath+'qcd_weights_CA15fj.root','weights')
@@ -104,5 +113,6 @@ with open(dataPath+"compressed.pkl",'wb') as pklFile:
 								'kinematics':kinematics, # for plotting
 							 	# 'massBinned':massBinned,
 							 	'mu':mu,
-							 	'sigma':sigma},pklFile,-1)
+							 	'sigma':sigma,
+							 	'vars':listOfRawVarsNames},pklFile,-1)
 print 'done!'
