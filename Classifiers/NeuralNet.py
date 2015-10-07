@@ -10,18 +10,38 @@ theano.config.int_division = 'floatX'
 
 
 def evaluateZScore(probabilities,truth,prunedMass,makePlots=False):
-	aSig = probabilities[truth==1][:,1]
-	aBg = probabilities[truth==0][:,1]
-	aSig.sort()
-	cutVal = aSig[int(aSig.shape[0]/2)]
-	bgPassed = float(aBg[aBg>cutVal].shape[0])
-	zScore = bgPassed/aBg.shape[0]
+	hSig = root.TH1F("hSig","hSig",100,0.,1.)
+	hBg = root.TH1F("hBg","hBg",100,0.,1.)
+	for i in xrange(truth.shape[0]):
+		if truth[i]==0:
+			hSig.Fill(probabilities[i,1])
+		else:
+			hBg.Fill(probabilities[i,1])
+	nSig = hSig.Integral()
+	nBg = hBg.Integral()
+	cutVal = 1
+	done = False
+	cumulativeIntegral=0.
+	for margin in [(.49,.51),(.45,.55),(.4,.6)]:
+		for i in xrange(100,0,-1):
+			cumulativeIntegral += hSig.GetBinContent(i)
+			if margin[0]<cumulativeIntegral/nSig<margin[1]:
+				cutVal = i*0.01
+				done = True
+				break
+			if done:
+				break
+	zScore = hBg.Integral(int(cutVal*100),100)/nBg
+	# aSig = probabilities[truth==1][:,1]
+	# aBg = probabilities[truth==0][:,1]
+	# aSig.sort()
+	# cutVal = aSig[int(aSig.shape[0]/2)]
+	# bgPassed = float(aBg[aBg>cutVal].shape[0])
+	# zScore = bgPassed/aBg.shape[0]
 	print "cutVal",cutVal
 	if makePlots:
 		c1 = root.TCanvas()
 		fout = root.TFile("outputHists.root","RECREATE")
-		hSig = root.TH1F("hSig","hSig",100,0.,1.)
-		hBg = root.TH1F("hBg","hBg",100,0.,1.)
 		hMassSig = root.TH1F("hMassSig","hMassSig",100,0,300)
 		hMassBg = root.TH1F("hMassBg","hMassBg",100,0,300)
 		hMassSig.GetXaxis().SetTitle('mSD [GeV]')
@@ -36,19 +56,14 @@ def evaluateZScore(probabilities,truth,prunedMass,makePlots=False):
 			hMassBg.Clear()
 			c1.Clear()
 			floatCutVal = cutVal + intCutVal*0.01
-			print floatCutVal
+			# print floatCutVal
 			# floatCutVal = cutVal if intCutVal==0 else intCutVal*0.1
 			for i in xrange(truth.shape[0]):
-				if truth[i]==1:
-					if intCutVal==0:
-						hSig.Fill(probabilities[i,1])
-					if probabilities[i,1] > floatCutVal:
-						hMassSig.Fill(prunedMass[i])
-				else:
-					if intCutVal==0:
-						hBg.Fill(probabilities[i,1])
-					if probabilities[i,1] > floatCutVal:
-						hMassBg.Fill(prunedMass[i])
+				if probabilities[i,1] > floatCutVal:
+					if truth[i]==1:
+							hMassSig.Fill(prunedMass[i])
+					else:
+							hMassBg.Fill(prunedMass[i])
 			hMassSig.SetNormFactor()
 			hMassSig.Draw("")
 			hMassBg.SetNormFactor()
