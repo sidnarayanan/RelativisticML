@@ -8,8 +8,8 @@ import ROOTInterface.Export
 # import ROOT as root # not need for compressor
 # from os import fsync
 
-nEvents = -1
-doMultiThread = True
+nEvents = 1000000
+doMultiThread = False
 
 def divide(a):
 	return a[0]/a[1]

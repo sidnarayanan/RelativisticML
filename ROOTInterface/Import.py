@@ -8,7 +8,7 @@ class TreeImporter(object):
   """kinda like TChain, but for numpy arrays.
   		also does simple computations on the fly
   		(e.g. tau3/tau2, ln(chi), max(sjBtag) etc.)"""
-  def __init__(self, tfile,treeName):
+  def __init__(self, fileName,treeName):
     self.treeName = treeName
     self.varList = []
     self.computedVars = []
@@ -16,15 +16,17 @@ class TreeImporter(object):
     self.counter = 0
     self.goodEntries = None
     self.useGoodEntries = False
+    self.fileName = fileName
+    self.treeName = treeName
     if type(tfile)==type(''):
         self.fIn = TFile(tfile)
     else:
         self.fIn = tfile
     self.tree = self.fIn.FindObjectAny(treeName)
-  def draw(self,varName,range=(0,250),cutString=""):
-    self.tree.Draw("%s>>htmp(100,%i,%i)"%(varName,range[0],range[1]),cutString)
-    htmp = gPad.GetPrimitive("htmp")
-    return htmp
+  # def draw(self,varName,range=(0,250),cutString=""):
+  #   self.tree.Draw("%s>>htmp(100,%i,%i)"%(varName,range[0],range[1]),cutString)
+  #   htmp = gPad.GetPrimitive("htmp")
+  #   return htmp
   def clone(self,f,t):
     newImporter = TreeImporter(f,t)
     newImporter.resetCounter(self.counter)
@@ -73,9 +75,10 @@ class TreeImporter(object):
     # setup multiprocessing stuff
     jobs = []
     manager = mp.Manager()
-    q = manager.dict()
+    q = manager.dict() # this is not really a dict and I am offline so cannot look up documentation for DictProxy
     for iJ in xrange(nProc):
-      jobs.append(mp.Process(target=self.__coreLoadTree, args=(truthValue,nEventsPerJob,nEventsPerJob*iJ+self.counter,branchDict,q)))
+      offset = nEventsPerJob*iJ+self.counter
+      jobs.append(mp.Process(target=self.__coreLoadTree, args=(truthValue,nEventsPerJob,offset,branchDict,q)))
     for j in jobs:
       j.start()
       sleep(10)
@@ -91,12 +94,6 @@ class TreeImporter(object):
     yVals = []
     for iJ in xrange(nProc):
       vals = q[nEventsPerJob*iJ+self.counter]
-      # print 'hello'
-      # print vals
-      # vals = q.get()
-      # if not vals:
-      #   print "job did not finish, increase wait time!"
-      #   exit(-1)
       xVals.append(vals[0])
       yVals.append(vals[1])
     return np.vstack(xVals),np.hstack(yVals)
@@ -113,6 +110,16 @@ class TreeImporter(object):
     nEvents = min(nEvents,self.tree.GetEntries()-self.counter)
     return self.__coreLoadTree(truthValue,nEvents,self.counter,branchDict)
   def __coreLoadTree(self,truthValue,nEvents,counter,branchDict,queue=None):
+    if queue:
+      # this is a multithreaded go
+      fIn = TFile(self.fileName)
+      tree = fIn.GetObjectAny(self.treeName)
+      leaves = self.tree.GetListOfLeaves()
+      branchDict = {}
+      for i in xrange(leaves.GetEntries()):
+        leaf = leaves.At(i)
+        if leaf.GetName() in self.dependencies:
+          branchDict[leaf.GetName()] = leaf
     nEvents = min(nEvents,self.tree.GetEntries()-counter)
     # allocate space
     dataX = np.empty([nEvents,len(self.varList)+len(self.computedVars)])
