@@ -37,6 +37,8 @@ class NetworkExporter(object):
     nIn = self.classifier.nIn
     nOut = self.classifier.nOut
     self.file.write("NeuralNet *%s = new NeuralNet(%i,%i);\n"%(name,nIn,nOut))
+    for v in self.classifier.vars:
+      self.file.write("// %s\n"%(v))
     parameters = self.classifier.getParameters()
     counter=0
     for p in parameters:

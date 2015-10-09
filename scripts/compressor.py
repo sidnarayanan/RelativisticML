@@ -8,7 +8,7 @@ import ROOTInterface.Export
 # import ROOT as root # not need for compressor
 # from os import fsync
 
-nEvents = 1000000
+nEvents = -1
 doMultiThread = False
 
 def divide(a):
@@ -20,8 +20,9 @@ print "starting!"
 
 rng = np.random.RandomState()
 
+compressedName = 'compressed_SD'
 # listOfRawVars = []
-listOfRawVars = ["massSoftDrop","QGTag","QjetVol","groomedIso"]
+listOfRawVars = ["logchi","QGTag","QjetVol","groomedIso"]
 listOfComputedVars = [(divide,['tau3','tau2'],'tau32')] # third property is short name
 nVars = len(listOfComputedVars) + len(listOfRawVars)
 listOfRawVarsNames = []
@@ -106,7 +107,8 @@ print 'finished loading %i kinematics'%(kinematics.shape[0])
 # weight = np.vstack([sigImporter.loadTree(0,nEvents)[0]*nBg,
 # 				  	bgImporter.loadTree(0,nEvents)[0]]*nSig)
 
-with open(dataPath+"compressed.pkl",'wb') as pklFile:
+
+with open(dataPath+compressedName+".pkl",'wb') as pklFile:
 	pickle.dump({'nSig':nSig,  'nBg':nBg, 
 								'dataX':dataX,
 								'dataY':dataY,
@@ -115,4 +117,11 @@ with open(dataPath+"compressed.pkl",'wb') as pklFile:
 							 	'mu':mu,
 							 	'sigma':sigma,
 							 	'vars':listOfRawVarsNames},pklFile,-1)
+
+with open(dataPath+compressedName+"_small.pkl",'wb') as pklFile:
+	pickle.dump({'nSig':nSig,  'nBg':nBg, 
+							 	'mu':mu,
+							 	'sigma':sigma,
+							 	'vars':listOfRawVarsNames},pklFile,-1)
+
 print 'done!'

@@ -36,12 +36,13 @@ msgFile = sys.stderr
 rng = np.random.RandomState()
 x = T.matrix('x')
 
-listOfRawVars = ["massSoftDrop","QGTag","QjetVol","groomedIso"]
-listOfComputedVars = [(divide,['tau3','tau2'])]
-nVars = len(listOfComputedVars) + len(listOfRawVars)
+# listOfRawVars = ["logchi","QGTag","QjetVol","groomedIso"]
+# listOfComputedVars = [(divide,['tau3','tau2'])]
+# nVars = len(listOfComputedVars) + len(listOfRawVars)
 
-dataPath = '/home/snarayan/cms/root/topTagging_CA15/'
-with open(dataPath+"compressed.pkl",'rb') as pklFile:
+dataPath = '/home/sid/scratch/data/topTagging_CA15/'
+# dataPath = '/home/snarayan/cms/root/topTagging_CA15/'
+with open(dataPath+"compressed_SD.pkl",'rb') as pklFile:
 	print 'loading data!'
 	d = pickle.load(pklFile)
 	dataX = d['dataX']
@@ -50,7 +51,10 @@ with open(dataPath+"compressed.pkl",'rb') as pklFile:
 	kinematics = d['kinematics']
 	nSig = d['nSig']
 	nBg = d['nBg']
+	vars = d['vars']
 	# weight = d['weights']
+
+nVars = len(vars)
 
 #apply cuts
 mass = kinematics[:,0]
@@ -97,6 +101,7 @@ for i in xrange(nHidden):
 	layers.append(hiddenSize)
 layers.append(2)
 classifier = NN.NeuralNet(x,rng,layers)
+classifier.vars = vars
 # classifier.setSignalWeight(float(nBg)/nSig)
 trainer,loss = classifier.getTrainer(0,0,"WeightedNLL")
 print "Done with initialization!"
@@ -151,7 +156,7 @@ while (epoch<nEpoch):
 		# if iteration > 1000:
 			done=True
 			break
-		if learningRate <= 0.00000001:
+		if learningRate <= 0.000001:
 			done = True
 			break
 	if done:
@@ -161,8 +166,8 @@ while (epoch<nEpoch):
 classifier.initialize(bestParameters)
 print NN.evaluateZScore(classifier.probabilities(dataX[validateIndices]),dataY[validateIndices],kinematics[validateIndices,0],True)
 
-fileName = "%.1f_%.1f_%.1f"%(ptlow,pthigh,etahigh)
-fileName = fileName.replace('.','p')
+fileName = "%i_%i_CA15"%(int(ptlow),int(pthigh))
+# fileName = fileName.replace('.','p')
 
 with open("bestParams_%s.pkl"%(fileName),'wb') as pklFile:
 	pickle.dump(bestParameters,pklFile,-1)
@@ -170,4 +175,4 @@ with open("bestParams_%s.pkl"%(fileName),'wb') as pklFile:
 with open("topTagger_%s.icc"%(fileName),"w") as fOut:
 	exporter = ROOTInterface.Export.NetworkExporter(classifier)
 	exporter.setFile(fOut)
-	exporter.export('topANN_simple')
+	exporter.export('topANN_%s'%(fileName))
