@@ -8,7 +8,7 @@ class TreeImporter(object):
   """kinda like TChain, but for numpy arrays.
   		also does simple computations on the fly
   		(e.g. tau3/tau2, ln(chi), max(sjBtag) etc.)"""
-  def __init__(self, fileName,treeName):
+  def __init__(self, tfile,treeName):
     self.treeName = treeName
     self.varList = []
     self.computedVars = []
@@ -16,7 +16,6 @@ class TreeImporter(object):
     self.counter = 0
     self.goodEntries = None
     self.useGoodEntries = False
-    self.fileName = fileName
     self.treeName = treeName
     if type(tfile)==type(''):
         self.fIn = TFile(tfile)
@@ -110,16 +109,16 @@ class TreeImporter(object):
     nEvents = min(nEvents,self.tree.GetEntries()-self.counter)
     return self.__coreLoadTree(truthValue,nEvents,self.counter,branchDict)
   def __coreLoadTree(self,truthValue,nEvents,counter,branchDict,queue=None):
-    if queue:
-      # this is a multithreaded go
-      fIn = TFile(self.fileName)
-      tree = fIn.GetObjectAny(self.treeName)
-      leaves = self.tree.GetListOfLeaves()
-      branchDict = {}
-      for i in xrange(leaves.GetEntries()):
-        leaf = leaves.At(i)
-        if leaf.GetName() in self.dependencies:
-          branchDict[leaf.GetName()] = leaf
+    # if queue:
+    #   # this is a multithreaded go
+    #   fIn = TFile(self.fileName)
+    #   tree = fIn.GetObjectAny(self.treeName)
+    #   leaves = self.tree.GetListOfLeaves()
+    #   branchDict = {}
+    #   for i in xrange(leaves.GetEntries()):
+    #     leaf = leaves.At(i)
+    #     if leaf.GetName() in self.dependencies:
+    #       branchDict[leaf.GetName()] = leaf
     nEvents = min(nEvents,self.tree.GetEntries()-counter)
     # allocate space
     dataX = np.empty([nEvents,len(self.varList)+len(self.computedVars)])

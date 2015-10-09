@@ -120,6 +120,7 @@ class NeuralNet(object):
 			network structure:
 			layerSize[0] -> ... -> layerSize[N-1]
 		'''
+		self.vars = []
 		self.nIn = layerSize[0]
 		self.nOut = layerSize[-1]
 		N = len(layerSize)
