@@ -23,10 +23,10 @@ print "starting!"
 
 rng = np.random.RandomState()
 
-compressedName = 'compressedWeighted'
+compressedName = 'compressedWithMass'
 # listOfRawVars = []
 #listOfRawVars = ["massPruned","massTrimmed","MassSDb0","MassSDb1","MassSDb2","MassSDbm1","logchi","QGTag","QjetVol","groomedIso","sjqgtag0","sjqgtag1","sjqgtag2"]
-listOfRawVars = ["logchi","QGTag","QjetVol","groomedIso","sjqgtag0","sjqgtag1","sjqgtag2"]
+listOfRawVars = ['massSoftDrop',"logchi","QGTag","QjetVol","groomedIso","sjqgtag0","sjqgtag1","sjqgtag2"]
 listOfComputedVars = [(divide,['tau3','tau2'],'tau32')] # third property is short name
 # for i in range(6):
 # 	listOfRawVars.append('iota%i'%(i))
@@ -87,24 +87,24 @@ dataY = np.hstack([sigY,bgY])
 
 print 'finished loading dataX and dataY: %i events'%(dataY.shape[0])
 
-longSuffix = ('_ptGT%.1fANDptLT%.1fANDabsetaLT%.1f'%(ptLow,ptHigh,etaHigh)).replace('.','p')
-alphas = np.empty(nVars)
-V = np.empty([nVars,nVars])
-with open(dataPath+'/pca.txt') as pcaFile:
-	for line in pcaFile:
-		if line.find(longSuffix) >= 0:
-			print line
-			ll = line.split()
-			if ll[0]=='alpha':
-				alphas[int(ll[1])] = float(ll[-1])
-			else:
-				for i in xrange(nVars):
-					# print i,ll[3+i]
-					V[i,int(ll[1])] = float(ll[3+i])
+# longSuffix = ('_ptGT%.1fANDptLT%.1fANDabsetaLT%.1f'%(ptLow,ptHigh,etaHigh)).replace('.','p')
+# alphas = np.empty(nVars)
+# V = np.empty([nVars,nVars])
+# with open(dataPath+'/pca.txt') as pcaFile:
+# 	for line in pcaFile:
+# 		if line.find(longSuffix) >= 0:
+# 			print line
+# 			ll = line.split()
+# 			if ll[0]=='alpha':
+# 				alphas[int(ll[1])] = float(ll[-1])
+# 			else:
+# 				for i in xrange(nVars):
+# 					# print i,ll[3+i]
+# 					V[i,int(ll[1])] = float(ll[3+i])
 
-truncV = V[:,1:] # kill leading component
-dataX = np.dot(dataX,truncV)
-nVars -= 1
+# truncV = V[:,1:] # kill leading component
+# dataX = np.dot(dataX,truncV)
+# nVars -= 1
 
 mu = dataX.mean(0)
 sigma = dataX.std(0)
@@ -133,6 +133,7 @@ bgImporter.addVar('massSoftDrop')
 bgImporter.addVar('pt')
 bgImporter.addVar('eta')
 for c in listOfCuts:
+	sigImporter.addCut(c)
 	bgImporter.addCut(c)
 if doMultiThread:
 	sigKinematics = sigImporter.loadTreeMultithreaded(0,nEvents)[0]
@@ -144,19 +145,17 @@ else:
 	kinematics = np.vstack([sigKinematics,bgKinematics])
 # massBinned = np.array([massBin([m]) for m in kinematics[:,0]])
 
-bgImporter.resetVars()
-bgImporter.resetCounter()
-bgImporter.addFriend('weights')
-bgImporter.addVar('weight')
-for c in listOfCuts:
-	bgImporter.addCut(c)
-bgWeights = bgImporter.loadTree(0,nEvents)[0][:,0]
-sigWeights = sigY
-weights = np.hstack([sigWeights,bgWeights])
-print sigWeights.shape,bgWeights.shape,weights.shape
+# bgImporter.resetVars()
+# bgImporter.resetCounter()
+# bgImporter.addFriend('weights')
+# bgImporter.addVar('weight')
+# for c in listOfCuts:
+# 	bgImporter.addCut(c)
+# bgWeights = bgImporter.loadTree(0,nEvents)[0][:,0]
+# sigWeights = sigY
+# weights = np.hstack([sigWeights,bgWeights])
+# print sigWeights.shape,bgWeights.shape,weights.shape
 # massBinned = np.array([massBin([m]) for m in kinematics[:,0]])
-
-
 
 print 'finished loading %i kinematics'%(kinematics.shape[0])
 
@@ -175,7 +174,7 @@ with open(dataPath+compressedName+".pkl",'wb') as pklFile:
 								'dataX':dataX,
 								'dataY':dataY,
 								'kinematics':kinematics, # for plotting
-								'weights':weights,
+								# 'weights':weights,
 							 	# 'massBinned':massBinned,
 							 	'mu':mu,
 							 	'sigma':sigma,

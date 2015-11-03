@@ -14,18 +14,18 @@ from os import fsync
 
 # thingsToDo = 0 if len(sys.argv)==1 else int(sys.argv[1])
 
-if not(len(sys.argv)==5):
-	print 'usage: %s ptlow pthigh absetahigh algo'%(sys.argv[0])
+if not(len(sys.argv)==6):
+	print 'usage: %s ptlow pthigh absetahigh algo var'%(sys.argv[0])
 	sys.exit(1)
 else:
 	ptlow = int(sys.argv[1])
 	pthigh = int(sys.argv[2])
 	etahigh = float(sys.argv[3])
 	jetAlgo = sys.argv[4]
+	var = sys.argv[5]
 
 
-print '%f < pT < %f && |eta| < %f, %s'%(ptlow,pthigh,etahigh,jetAlgo)
-
+print '%f < pT < %f && |eta| < %f, %s, %s'%(ptlow,pthigh,etahigh,jetAlgo,var)
 
 
 config.int_division = 'floatX'
@@ -40,18 +40,11 @@ msgFile = sys.stderr
 rng = np.random.RandomState()
 x = T.matrix('x')
 
-# listOfRawVars = ["logchi","QGTag","QjetVol","groomedIso"]
-# listOfComputedVars = [(divide,['tau3','tau2'])]
-# nVars = len(listOfComputedVars) + len(listOfRawVars)
-
 dataPath = '/home/snarayan/cms/root/topTagging_%s/'%(jetAlgo)
-
-# dataPath = '/home/sid/scratch/data/topTagging_%s/'%(jetAlgo)
 
 suffix = '%i_%i_%.1f'%(ptlow,pthigh,etahigh)
 suffix = suffix.replace('.','p')
-# dataPath = '/home/snarayan/cms/root/topTagging_CA15/'
-with open(dataPath+"compressedWeighted_%s.pkl"%(suffix),'rb') as pklFile:
+with open(dataPath+"compressedWithMass_%s.pkl"%(suffix),'rb') as pklFile:
 	print 'loading data!'
 	d = pickle.load(pklFile)
 	dataX = d['dataX']
@@ -63,19 +56,15 @@ with open(dataPath+"compressedWeighted_%s.pkl"%(suffix),'rb') as pklFile:
 	vars = d['vars']
 	mu = d['mu']
 	sigma = d['sigma']
-	weight = d['weights']
 
-nVars = len(vars)# -1 # -1 if using PCA
+wantedIdx = vars.index(var)
+dataX = dataX[:,wantedIdx:wantedIdx+1]
+vars = vars[wantedIdx:wantedIdx+1]
+mu = mu[wantedIdx:wantedIdx+1]
+sigma = sigma[wantedIdx:wantedIdx+1]
+
+nVars = len(vars)
 print vars
-
-#apply cuts
-# mass = kinematics[:,0]
-# pt = kinematics[:,1]
-# eta = kinematics[:,2]
-# cut = np.logical_and(np.logical_and(pt<pthigh,pt>ptlow),np.abs(eta)<etahigh)
-# dataX = dataX[cut]
-# dataY = dataY[cut]
-# kinematics = kinematics[cut]
 
 print dataX[:10]
 # weight = weight*10000.
@@ -84,11 +73,10 @@ nSig = int(np.sum(dataY))
 nBg = nData-nSig
 print nSig,nBg
 
-scale = nBg*dataY + 0.1*nSig*(1-dataY)
-# np.hstack([0.1*np.ones(nSig),np.ones(nBg)])
-weight = scale*weight
+scale = (1.*nBg/nData)*dataY + (1.*nSig/nData)*(1-dataY)
+weight = scale
 
-nValidate = 3000
+nValidate = 0
 nTest = 10000
 nTrain = nData-nTest-nValidate
 # nValidate = nData*1/16
@@ -108,7 +96,7 @@ nPerBatch=200
 
 # dimensions
 hiddenSize = nVars*3
-nHidden = 10
+nHidden = 3
 layers = [nVars]
 for i in xrange(nHidden):
 	layers.append(hiddenSize)
@@ -122,14 +110,8 @@ print "Done with initialization!"
 dataIndices = np.arange(nData)
 np.random.shuffle(dataIndices) # mix up signal and background
 trainIndices = dataIndices[:nTrain]
-validateIndices = dataIndices[nTrain:nTrain+nValidate]
 testIndices = dataIndices[nTrain+nValidate:]
-# mask = np.ones(nTrain,dtype=bool)
-# for i in xrange(nTrain):
-# 	if mass[trainIndices[i]] > 120 or mass[trainIndices[i]] < 50:
-# 		mask[i] = False
-# trainIndices = trainIndices[mask]
-# nTrain = trainIndices.shape[0]
+
 msgFile.write("%d\n"%(nTrain))
 lossFile.write("%f\n"%(classifier.errors(dataX[testIndices],dataY[testIndices])))
 bestParameters = None
@@ -177,10 +159,10 @@ while (epoch<nEpoch):
 	epoch+=1
 
 classifier.initialize(bestParameters)
-print NN.evaluateZScore(classifier.probabilities(dataX[validateIndices]),dataY[validateIndices],kinematics[validateIndices,0],True)
 
-fileName = "%i_%i_%s"%(ptlow,pthigh,jetAlgo)
+fileName = "%i_%i_%s_%s"%(ptlow,pthigh,jetAlgo,var)
 # fileName = fileName.replace('.','p')
+print NN.evaluateZScore(classifier.probabilities(dataX),dataY,kinematics[:,0],True)
 
 with open("bestParams_%s.pkl"%(fileName),'wb') as pklFile:
 	pickle.dump(bestParameters,pklFile,-1)
