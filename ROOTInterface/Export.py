@@ -30,7 +30,7 @@ class NetworkExporter(object):
       self.file = open(f,'w')
     else:
       self.file = f
-  def export(self,name):
+  def export(self,name,mu,sigma):
     if not self.file:
       print 'Please call NetworkExporter.setFile() first'
       return
@@ -41,6 +41,8 @@ class NetworkExporter(object):
       self.file.write("// %s\n"%(v))
     parameters = self.classifier.getParameters()
     counter=0
+    for m,s in zip(mu,sigma):
+      self.file.write("%s->AddMuSigma(%f,%f);\n"%(name,m,s))
     for p in parameters:
     	isLast = (counter==len(parameters)-1)
     	nIn = p['W'].shape[0]

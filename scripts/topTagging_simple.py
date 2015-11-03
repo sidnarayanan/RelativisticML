@@ -11,18 +11,22 @@ import sys
 import ROOT as root # turned off to run on t3
 from os import fsync
 
+
 # thingsToDo = 0 if len(sys.argv)==1 else int(sys.argv[1])
 
-if not(len(sys.argv)==4):
-	print 'usage: %s ptlow pthigh absetahigh'
+if not(len(sys.argv)==5):
+	print 'usage: %s ptlow pthigh absetahigh algo'%(sys.argv[0])
 	sys.exit(1)
 else:
-	ptlow = float(sys.argv[1])
-	pthigh = float(sys.argv[2])
+	ptlow = int(sys.argv[1])
+	pthigh = int(sys.argv[2])
 	etahigh = float(sys.argv[3])
+	jetAlgo = sys.argv[4]
 
 
-print '%f < pT < %f && |eta| < %f'%(ptlow,pthigh,etahigh)
+print '%f < pT < %f && |eta| < %f, %s'%(ptlow,pthigh,etahigh,jetAlgo)
+
+
 
 config.int_division = 'floatX'
 def divide(a):
@@ -40,9 +44,14 @@ x = T.matrix('x')
 # listOfComputedVars = [(divide,['tau3','tau2'])]
 # nVars = len(listOfComputedVars) + len(listOfRawVars)
 
-dataPath = '/home/sid/scratch/data/topTagging_CA15/'
+dataPath = '/home/snarayan/cms/root/topTagging_%s/'%(jetAlgo)
+
+# dataPath = '/home/sid/scratch/data/topTagging_%s/'%(jetAlgo)
+
+suffix = '%i_%i_%.1f'%(ptlow,pthigh,etahigh)
+suffix = suffix.replace('.','p')
 # dataPath = '/home/snarayan/cms/root/topTagging_CA15/'
-with open(dataPath+"compressed_SD.pkl",'rb') as pklFile:
+with open(dataPath+"compressedWeighted_%s.pkl"%(suffix),'rb') as pklFile:
 	print 'loading data!'
 	d = pickle.load(pklFile)
 	dataX = d['dataX']
@@ -52,19 +61,21 @@ with open(dataPath+"compressed_SD.pkl",'rb') as pklFile:
 	nSig = d['nSig']
 	nBg = d['nBg']
 	vars = d['vars']
-	# weight = d['weights']
+	mu = d['mu']
+	sigma = d['sigma']
+	weight = d['weights']
 
-nVars = len(vars)
+nVars = len(vars)# -1 # -1 if using PCA
+print vars
 
 #apply cuts
-mass = kinematics[:,0]
-pt = kinematics[:,1]
-eta = kinematics[:,2]
-cut = np.logical_and(np.logical_and(pt<pthigh,pt>ptlow),np.abs(eta)<etahigh)
-
-dataX = dataX[cut]
-dataY = dataY[cut]
-kinematics = kinematics[cut]
+# mass = kinematics[:,0]
+# pt = kinematics[:,1]
+# eta = kinematics[:,2]
+# cut = np.logical_and(np.logical_and(pt<pthigh,pt>ptlow),np.abs(eta)<etahigh)
+# dataX = dataX[cut]
+# dataY = dataY[cut]
+# kinematics = kinematics[cut]
 
 print dataX[:10]
 # weight = weight*10000.
@@ -73,11 +84,12 @@ nSig = int(np.sum(dataY))
 nBg = nData-nSig
 print nSig,nBg
 
-weight = np.hstack([nBg/nSig*np.ones(nSig),np.ones(nBg)])
+scale = np.hstack([0.1*np.ones(nSig),np.ones(nBg)])
+weight = scale*weight
 
-nTrain = nData*3/4-5000
+nValidate = 3000
 nTest = 10000
-nValidate = nData-nTrain-nTest
+nTrain = nData-nTest-nValidate
 # nValidate = nData*1/16
 learningRate = .01
 nSinceLastImprovement = 0
@@ -94,8 +106,8 @@ done=False
 nPerBatch=200
 
 # dimensions
-hiddenSize = nVars*5
-nHidden = 15
+hiddenSize = nVars*3
+nHidden = 10
 layers = [nVars]
 for i in xrange(nHidden):
 	layers.append(hiddenSize)
@@ -128,7 +140,7 @@ while (epoch<nEpoch):
 	for i in xrange(nTrain/nPerBatch):
 		if nSinceLastImprovement == 10:
 			nSinceLastImprovement=0
-			learningRate = learningRate*.3
+			learningRate = learningRate*.1
 			msgFile.write("\tLearningRate: %f\n"%(learningRate))
 			classifier.initialize(bestParameters) # go back to the best point
 		idx = trainIndices[i*nPerBatch:(i+1)*nPerBatch]
@@ -156,7 +168,7 @@ while (epoch<nEpoch):
 		# if iteration > 1000:
 			done=True
 			break
-		if learningRate <= 0.000001:
+		if learningRate <= 0.00001:
 			done = True
 			break
 	if done:
@@ -166,7 +178,7 @@ while (epoch<nEpoch):
 classifier.initialize(bestParameters)
 print NN.evaluateZScore(classifier.probabilities(dataX[validateIndices]),dataY[validateIndices],kinematics[validateIndices,0],True)
 
-fileName = "%i_%i_CA15"%(int(ptlow),int(pthigh))
+fileName = "%i_%i_%s"%(ptlow,pthigh,jetAlgo)
 # fileName = fileName.replace('.','p')
 
 with open("bestParams_%s.pkl"%(fileName),'wb') as pklFile:
@@ -175,4 +187,4 @@ with open("bestParams_%s.pkl"%(fileName),'wb') as pklFile:
 with open("topTagger_%s.icc"%(fileName),"w") as fOut:
 	exporter = ROOTInterface.Export.NetworkExporter(classifier)
 	exporter.setFile(fOut)
-	exporter.export('topANN_%s'%(fileName))
+	exporter.export('topANN_%s'%(fileName),mu,sigma)
