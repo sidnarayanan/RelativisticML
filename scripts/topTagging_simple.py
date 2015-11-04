@@ -27,7 +27,6 @@ else:
 print '%f < pT < %f && |eta| < %f, %s'%(ptlow,pthigh,etahigh,jetAlgo)
 
 
-
 config.int_division = 'floatX'
 def divide(a):
 	return a[0]/a[1]
@@ -51,21 +50,21 @@ dataPath = '/home/snarayan/cms/root/topTagging_%s/'%(jetAlgo)
 suffix = '%i_%i_%.1f'%(ptlow,pthigh,etahigh)
 suffix = suffix.replace('.','p')
 # dataPath = '/home/snarayan/cms/root/topTagging_CA15/'
-with open(dataPath+"compressedWeighted_%s.pkl"%(suffix),'rb') as pklFile:
+with open(dataPath+"compressedPCAWindow_%s.pkl"%(suffix),'rb') as pklFile:
 	print 'loading data!'
 	d = pickle.load(pklFile)
 	dataX = d['dataX']
 	dataY = d['dataY']
 	# massBinned = d['massBinned']
-	kinematics = d['kinematics']
+	# kinematics = d['kinematics']
 	nSig = d['nSig']
 	nBg = d['nBg']
 	vars = d['vars']
 	mu = d['mu']
 	sigma = d['sigma']
-	weight = d['weights']
+	# weight = d['weights']
 
-nVars = len(vars)# -1 # -1 if using PCA
+nVars = len(vars) - 1 # -1 if using PCA
 print vars
 
 #apply cuts
@@ -84,11 +83,12 @@ nSig = int(np.sum(dataY))
 nBg = nData-nSig
 print nSig,nBg
 
-scale = nBg*dataY + 0.1*nSig*(1-dataY)
+scale = (1.*nBg/nData)*dataY + (1.*nSig/nData)*(1-dataY)
 # np.hstack([0.1*np.ones(nSig),np.ones(nBg)])
-weight = scale*weight
+weight = scale
+# weight = scale*weight
 
-nValidate = 3000
+nValidate = 5000
 nTest = 10000
 nTrain = nData-nTest-nValidate
 # nValidate = nData*1/16
@@ -139,7 +139,7 @@ while (epoch<nEpoch):
 	np.random.shuffle(trainIndices) # randomize learning order
 	msgFile.write("Epoch: %i\n"%(epoch))
 	for i in xrange(nTrain/nPerBatch):
-		if nSinceLastImprovement == 10:
+		if nSinceLastImprovement == 5:
 			nSinceLastImprovement=0
 			learningRate = learningRate*.1
 			msgFile.write("\tLearningRate: %f\n"%(learningRate))
@@ -169,7 +169,7 @@ while (epoch<nEpoch):
 		# if iteration > 1000:
 			done=True
 			break
-		if learningRate <= 0.00001:
+		if learningRate <= 0.000001:
 			done = True
 			break
 	if done:
@@ -177,7 +177,7 @@ while (epoch<nEpoch):
 	epoch+=1
 
 classifier.initialize(bestParameters)
-print NN.evaluateZScore(classifier.probabilities(dataX[validateIndices]),dataY[validateIndices],kinematics[validateIndices,0],True)
+print NN.evaluateZScore(classifier.probabilities(dataX[validateIndices]),dataY[validateIndices],None,True)
 
 fileName = "%i_%i_%s"%(ptlow,pthigh,jetAlgo)
 # fileName = fileName.replace('.','p')

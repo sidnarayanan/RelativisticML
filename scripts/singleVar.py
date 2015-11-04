@@ -80,7 +80,7 @@ nValidate = 0
 nTest = 10000
 nTrain = nData-nTest-nValidate
 # nValidate = nData*1/16
-learningRate = .01
+learningRate = .1
 nSinceLastImprovement = 0
 bestTestLoss = np.inf
 sigTestLoss = np.inf
@@ -95,7 +95,7 @@ done=False
 nPerBatch=200
 
 # dimensions
-hiddenSize = nVars*3
+hiddenSize = nVars*4
 nHidden = 3
 layers = [nVars]
 for i in xrange(nHidden):

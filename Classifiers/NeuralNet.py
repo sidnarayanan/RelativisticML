@@ -40,31 +40,31 @@ def evaluateZScore(probabilities,truth,prunedMass,makePlots=False):
   if makePlots:
     c1 = root.TCanvas()
     fout = root.TFile("outputHists.root","RECREATE")
-    hMassSig = root.TH1F("hMassSig","hMassSig",100,0,300)
-    hMassBg = root.TH1F("hMassBg","hMassBg",100,0,300)
-    hMassSig.GetXaxis().SetTitle('mSD [GeV]')
-    hMassBg.GetXaxis().SetTitle('mSD [GeV]')
-    hMassSig.GetYaxis().SetTitle('a.u.')
-    hMassBg.GetYaxis().SetTitle('a.u.')
-    hMassSig.SetStats(0)
-    hMassBg.SetStats(0)
-    hMassBg.SetLineColor(2)
-    hMassSig.Clear()
-    hMassBg.Clear()
-    c1.Clear()
-    # print floatCutVal
-    # floatCutVal = cutVal if intCutVal==0 else intCutVal*0.1
-    for i in xrange(truth.shape[0]):
-      if probabilities[i,1] > cutVal:
-        if truth[i]==1:
-            hMassSig.Fill(prunedMass[i])
-        else:
-            hMassBg.Fill(prunedMass[i])
-    hMassSig.SetNormFactor()
-    hMassSig.Draw("")
-    hMassBg.SetNormFactor()
-    hMassBg.Draw("same")
-    c1.SaveAs("mass.pdf")
+    if prunedMass is not None:
+      hMassSig = root.TH1F("hMassSig","hMassSig",100,0,300)
+      hMassBg = root.TH1F("hMassBg","hMassBg",100,0,300)
+      hMassSig.GetXaxis().SetTitle('mSD [GeV]')
+      hMassBg.GetXaxis().SetTitle('mSD [GeV]')
+      hMassSig.GetYaxis().SetTitle('a.u.')
+      hMassBg.GetYaxis().SetTitle('a.u.')
+      hMassSig.SetStats(0)
+      hMassBg.SetStats(0)
+      hMassBg.SetLineColor(2)
+      hMassSig.Clear()
+      hMassBg.Clear()
+      # print floatCutVal
+      # floatCutVal = cutVal if intCutVal==0 else intCutVal*0.1
+      for i in xrange(truth.shape[0]):
+        if probabilities[i,1] > cutVal:
+          if truth[i]==1:
+              hMassSig.Fill(prunedMass[i])
+          else:
+              hMassBg.Fill(prunedMass[i])
+      hMassSig.SetNormFactor()
+      hMassSig.Draw("")
+      hMassBg.SetNormFactor()
+      hMassBg.Draw("same")
+      c1.SaveAs("mass.pdf")
     hBg.SetLineColor(2)
     fout.WriteTObject(hSig,"hSig")
     fout.WriteTObject(hBg,"hBg")

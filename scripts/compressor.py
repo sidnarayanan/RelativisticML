@@ -5,9 +5,6 @@ import numpy as np
 import ROOTInterface.Import
 import ROOTInterface.Export
 from sys import argv
-# import sys
-# import ROOT as root # not need for compressor
-# from os import fsync
 
 nEvents = -1
 doMultiThread = False
@@ -24,7 +21,6 @@ print "starting!"
 rng = np.random.RandomState()
 
 compressedName = 'compressedWithMass'
-# listOfRawVars = []
 #listOfRawVars = ["massPruned","massTrimmed","MassSDb0","MassSDb1","MassSDb2","MassSDbm1","logchi","QGTag","QjetVol","groomedIso","sjqgtag0","sjqgtag1","sjqgtag2"]
 listOfRawVars = ['massSoftDrop',"logchi","QGTag","QjetVol","groomedIso","sjqgtag0","sjqgtag1","sjqgtag2"]
 listOfComputedVars = [(divide,['tau3','tau2'],'tau32')] # third property is short name
@@ -54,9 +50,7 @@ compressedName = compressedName.replace('.','p')
 print '%f < pT < %f && |eta| < %f, %s'%(ptLow,ptHigh,etaHigh,jetAlgo)
 
 
-# dataPath = '/home/sid/scratch/data/topTagging_SDTopmass150/'
 dataPath = '/home/snarayan/cms/root/topTagging_%s/'%(jetAlgo)
-# dataPath = '/home/sid/scratch/data/topTagging_%s/'%(jetAlgo)
 
 # first tagging variables
 sigImporter = ROOTInterface.Import.TreeImporter(dataPath+'signal.root','jets')
@@ -86,25 +80,6 @@ dataX = np.vstack([sigX,bgX])
 dataY = np.hstack([sigY,bgY])
 
 print 'finished loading dataX and dataY: %i events'%(dataY.shape[0])
-
-# longSuffix = ('_ptGT%.1fANDptLT%.1fANDabsetaLT%.1f'%(ptLow,ptHigh,etaHigh)).replace('.','p')
-# alphas = np.empty(nVars)
-# V = np.empty([nVars,nVars])
-# with open(dataPath+'/pca.txt') as pcaFile:
-# 	for line in pcaFile:
-# 		if line.find(longSuffix) >= 0:
-# 			print line
-# 			ll = line.split()
-# 			if ll[0]=='alpha':
-# 				alphas[int(ll[1])] = float(ll[-1])
-# 			else:
-# 				for i in xrange(nVars):
-# 					# print i,ll[3+i]
-# 					V[i,int(ll[1])] = float(ll[3+i])
-
-# truncV = V[:,1:] # kill leading component
-# dataX = np.dot(dataX,truncV)
-# nVars -= 1
 
 mu = dataX.mean(0)
 sigma = dataX.std(0)
