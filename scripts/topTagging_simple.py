@@ -40,11 +40,12 @@ x = T.matrix('x')
 # listOfComputedVars = [(divide,['tau3','tau2'])]
 # nVars = len(listOfComputedVars) + len(listOfRawVars)
 
-dataPath = '/home/snarayan/cms/root/topTagging_%s/'%(jetAlgo)
+dataPath = '/home/snarayan/cms/root/monotop25ns_v2/topTagging/'
 
 suffix = '%i_%i_%.1f'%(ptlow,pthigh,etahigh)
 suffix = suffix.replace('.','p')
-with open(dataPath+"compressedBasic_%s.pkl"%(suffix),'rb') as pklFile:
+# dataPath = '/home/snarayan/cms/root/topTagging_CA15/'
+with open(dataPath+"compressedWindow_%s.pkl"%(suffix),'rb') as pklFile:
 	print 'loading data!'
 	d = pickle.load(pklFile)
 	dataX = d['dataX']
@@ -71,15 +72,13 @@ print vars
 # kinematics = kinematics[cut]
 
 print dataX[:10]
-print dataY[:10]
-weight *= 1000.
+weight = weight*10000.
 nData = dataY.shape[0]
 nSig = int(np.sum(dataY))
 nBg = nData-nSig
 print nSig,nBg
 
-#scale = 1.*dataY + 1.*(1-dataY)
-scale = 1
+scale = 1.*dataY + 2.*(1-dataY)
 # np.hstack([0.1*np.ones(nSig),np.ones(nBg)])
 #weight = scale
 weight = scale*weight
@@ -106,8 +105,8 @@ done=False
 nPerBatch=200
 
 # dimensions
-hiddenSize = nVars*1
-nHidden = 10
+hiddenSize = nVars*3
+nHidden = 5
 layers = [nVars]
 for i in xrange(nHidden):
 	layers.append(hiddenSize)
