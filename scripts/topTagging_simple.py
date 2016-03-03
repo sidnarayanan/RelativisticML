@@ -5,14 +5,11 @@ import numpy as np
 from theano import config
 import theano.tensor as T
 import Classifiers.NeuralNet as NN
-# import ROOTInterface.Import
 import ROOTInterface.Export
 import sys
-import ROOT as root # turned off to run on t3
+import ROOT as root 
 from os import fsync
 
-
-# thingsToDo = 0 if len(sys.argv)==1 else int(sys.argv[1])
 
 if not(len(sys.argv)==5):
 	print 'usage: %s ptlow pthigh absetahigh algo'%(sys.argv[0])
@@ -45,12 +42,9 @@ x = T.matrix('x')
 
 dataPath = '/home/snarayan/cms/root/topTagging_%s/'%(jetAlgo)
 
-# dataPath = '/home/sid/scratch/data/topTagging_%s/'%(jetAlgo)
-
 suffix = '%i_%i_%.1f'%(ptlow,pthigh,etahigh)
 suffix = suffix.replace('.','p')
-# dataPath = '/home/snarayan/cms/root/topTagging_CA15/'
-with open(dataPath+"compressedPCAWindow_%s.pkl"%(suffix),'rb') as pklFile:
+with open(dataPath+"compressedBasic_%s.pkl"%(suffix),'rb') as pklFile:
 	print 'loading data!'
 	d = pickle.load(pklFile)
 	dataX = d['dataX']
@@ -62,9 +56,9 @@ with open(dataPath+"compressedPCAWindow_%s.pkl"%(suffix),'rb') as pklFile:
 	vars = d['vars']
 	mu = d['mu']
 	sigma = d['sigma']
-	# weight = d['weights']
+	weight = d['weights']
 
-nVars = len(vars) - 1 # -1 if using PCA
+nVars = len(vars) #- 1 # -1 if using PCA
 print vars
 
 #apply cuts
@@ -77,22 +71,27 @@ print vars
 # kinematics = kinematics[cut]
 
 print dataX[:10]
-# weight = weight*10000.
+print dataY[:10]
+weight *= 1000.
 nData = dataY.shape[0]
 nSig = int(np.sum(dataY))
 nBg = nData-nSig
 print nSig,nBg
 
-scale = (1.*nBg/nData)*dataY + (1.*nSig/nData)*(1-dataY)
+#scale = 1.*dataY + 1.*(1-dataY)
+scale = 1
 # np.hstack([0.1*np.ones(nSig),np.ones(nBg)])
-weight = scale
-# weight = scale*weight
+#weight = scale
+weight = scale*weight
 
-nValidate = 5000
-nTest = 10000
-nTrain = nData-nTest-nValidate
+#nTrain = nData/2
+#nValidate = nTrain/2
+#nTest = nData - nTrain - nValidate
+#nValidate = 5000
+#nTest = 10000
+#nTrain = nData-nTest-nValidate
 # nValidate = nData*1/16
-learningRate = .01
+learningRate = .001
 nSinceLastImprovement = 0
 bestTestLoss = np.inf
 sigTestLoss = np.inf
@@ -107,7 +106,7 @@ done=False
 nPerBatch=200
 
 # dimensions
-hiddenSize = nVars*3
+hiddenSize = nVars*1
 nHidden = 10
 layers = [nVars]
 for i in xrange(nHidden):
@@ -120,10 +119,20 @@ trainer,loss = classifier.getTrainer(0,0,"WeightedNLL")
 print "Done with initialization!"
 
 dataIndices = np.arange(nData)
-np.random.shuffle(dataIndices) # mix up signal and background
+np.random.shuffle(dataIndices)
+nTrain = int(nData*0.6)
+nTest = int(nData*0.2)
+nValidate = nTest
 trainIndices = dataIndices[:nTrain]
-validateIndices = dataIndices[nTrain:nTrain+nValidate]
-testIndices = dataIndices[nTrain+nValidate:]
+testIndices = dataIndices[nTrain:nTrain+nTest]
+validateIndices = dataIndices[nTrain+nTest:]
+#trainIndices = 2*np.arange(nData/2)
+#testAndValidateIndices = 2*np.arange(nData/2)+1
+#np.random.shuffle(trainIndices) # mix up signal and background
+#np.random.shuffle(testAndValidateIndices) # mix up signal and background
+#validateIndices = testAndValidateIndices[:nData/4]
+#testIndices = testAndValidateIndices[nData/4:]
+#nTrain = trainIndices.shape[0]
 # mask = np.ones(nTrain,dtype=bool)
 # for i in xrange(nTrain):
 # 	if mass[trainIndices[i]] > 120 or mass[trainIndices[i]] < 50:
@@ -146,7 +155,7 @@ while (epoch<nEpoch):
 			classifier.initialize(bestParameters) # go back to the best point
 		idx = trainIndices[i*nPerBatch:(i+1)*nPerBatch]
 		trainer(dataX[idx],dataY[idx],learningRate,weight[idx])
-		if not iteration%50:
+		if not iteration%200:
 			msgFile.write("Iteration: %i\n"%(iteration))
 			testLoss = loss(dataX[testIndices],dataY[testIndices],weight[testIndices])[0]
 			# testLoss = NN.evaluateZScore(classifier.probabilities(dataX[testIndices]),dataY[testIndices],None,False)
@@ -169,7 +178,7 @@ while (epoch<nEpoch):
 		# if iteration > 1000:
 			done=True
 			break
-		if learningRate <= 0.000001:
+		if learningRate <= 0.00000001:
 			done = True
 			break
 	if done:
@@ -177,7 +186,7 @@ while (epoch<nEpoch):
 	epoch+=1
 
 classifier.initialize(bestParameters)
-print NN.evaluateZScore(classifier.probabilities(dataX[validateIndices]),dataY[validateIndices],None,True)
+print NN.evaluateZScore(classifier.probabilities(dataX[validateIndices]),dataY[validateIndices],weight[validateIndices],None,True)
 
 fileName = "%i_%i_%s"%(ptlow,pthigh,jetAlgo)
 # fileName = fileName.replace('.','p')
@@ -189,3 +198,5 @@ with open("topTagger_%s.icc"%(fileName),"w") as fOut:
 	exporter = ROOTInterface.Export.NetworkExporter(classifier)
 	exporter.setFile(fOut)
 	exporter.export('topANN_%s'%(fileName),mu,sigma)
+
+NN.drawDistributions(dataX[validateIndices],dataY[validateIndices],weight[validateIndices],classifier.vars)

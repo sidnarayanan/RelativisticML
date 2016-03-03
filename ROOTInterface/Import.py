@@ -15,7 +15,7 @@ class TreeImporter(object):
     self.cuts = []
     self.dependencies = []
     self.counter = 0
-    self.goodEntries = None
+    self.goodEntries = []
     self.useGoodEntries = False
     self.treeName = treeName
     if type(tfile)==type(''):
@@ -33,7 +33,6 @@ class TreeImporter(object):
   def clone(self,f,t):
     newImporter = TreeImporter(f,t)
     newImporter.resetCounter(self.counter)
-    newImporter.goodEntries = self.goodEntries
     for v in self.varList:
       newImporter.addVar(v)
     for v in self.computedVars:
@@ -52,14 +51,8 @@ class TreeImporter(object):
     self.computedVars = []
     self.cuts = []
     self.dependencies = []
-  def setGoodEntries(self,g):
-    self.goodEntries = g
-    self.useGoodEntries = True
-    self.counter=0
   def resetCounter(self,c=0):
     self.counter = c
-    self.goodEntries = None
-    self.useGoodEntries = False
   def addVar(self,var):
     self.varList.append(var)
     self.dependencies.append(var)
@@ -138,7 +131,10 @@ class TreeImporter(object):
     dataX = np.empty([nEvents,len(self.varList)+len(self.computedVars)])
     dataY = np.ones(nEvents) if truthValue==1 else np.zeros(nEvents) # faster than multiplying if only {0,1}
     # get iterator
-    entryIter = xrange(0,nEvents)
+    if self.useGoodEntries:
+      entryIter = self.goodEntries
+    else:
+      entryIter = xrange(0,nEvents)
     nEntries=0
     for iE in entryIter:
       # print counter,iE+counter
@@ -154,6 +150,8 @@ class TreeImporter(object):
           break
       if not isGood:
         continue
+      if not self.useGoodEntries:
+        self.goodEntries.append(iE+counter)
       for var in self.varList:
         try:
           dataX[nEntries,m] = branchDict[var].GetValue()

@@ -9,69 +9,31 @@ import ROOT as root
 theano.config.int_division = 'floatX'
 
 
-def evaluateZScore(probabilities,truth,prunedMass,makePlots=False):
+def evaluateZScore(probabilities,truth,weight,prunedMass,makePlots=False):
   hSig = root.TH1F("hSig","hSig",100,0.,1.)
   hBg = root.TH1F("hBg","hBg",100,0.,1.)
   for i in xrange(truth.shape[0]):
     if truth[i]==0:
-      hSig.Fill(probabilities[i,1])
+      hBg.Fill(probabilities[i,1],weight[i])
     else:
-      hBg.Fill(probabilities[i,1])
-  nSig = hSig.Integral()
-  nBg = hBg.Integral()
-  cutVal = 1
-  done = False
-  for margin in [(.49,.51),(.45,.55),(.4,.6)]:
-    for i in xrange(1,100+1):
-      if margin[0]<hSig.Integral(1,i)/nSig<margin[1]:
-        cutVal = (i+1)*0.01
-        done = True
-        break
-      if done:
-        break
-  zScore = hBg.Integral(int(cutVal*100),100)/nBg
-  # aSig = probabilities[truth==1][:,1]
-  # aBg = probabilities[truth==0][:,1]
-  # aSig.sort()
-  # cutVal = aSig[int(aSig.shape[0]/2)]
-  # bgPassed = float(aBg[aBg>cutVal].shape[0])
-  # zScore = bgPassed/aBg.shape[0]
-  print "cutVal",cutVal
+      hSig.Fill(probabilities[i,1],weight[i])
+  zScore = -1
   if makePlots:
+    leg = root.TLegend(.7,.7,.9,.9)
     c1 = root.TCanvas()
+    c1.SetLogy()
     fout = root.TFile("outputHists.root","RECREATE")
-    if prunedMass is not None:
-      hMassSig = root.TH1F("hMassSig","hMassSig",100,0,300)
-      hMassBg = root.TH1F("hMassBg","hMassBg",100,0,300)
-      hMassSig.GetXaxis().SetTitle('mSD [GeV]')
-      hMassBg.GetXaxis().SetTitle('mSD [GeV]')
-      hMassSig.GetYaxis().SetTitle('a.u.')
-      hMassBg.GetYaxis().SetTitle('a.u.')
-      hMassSig.SetStats(0)
-      hMassBg.SetStats(0)
-      hMassBg.SetLineColor(2)
-      hMassSig.Clear()
-      hMassBg.Clear()
-      # print floatCutVal
-      # floatCutVal = cutVal if intCutVal==0 else intCutVal*0.1
-      for i in xrange(truth.shape[0]):
-        if probabilities[i,1] > cutVal:
-          if truth[i]==1:
-              hMassSig.Fill(prunedMass[i])
-          else:
-              hMassBg.Fill(prunedMass[i])
-      hMassSig.SetNormFactor()
-      hMassSig.Draw("")
-      hMassBg.SetNormFactor()
-      hMassBg.Draw("same")
-      c1.SaveAs("mass.pdf")
-    hBg.SetLineColor(2)
+    hSig.SetLineColor(2)
     fout.WriteTObject(hSig,"hSig")
     fout.WriteTObject(hBg,"hBg")
     hSig.SetNormFactor()
     hBg.SetNormFactor()
+    hSig.SetStats(0)
+    leg.AddEntry(hSig,"Top","l")
+    leg.AddEntry(hBg,"QCD","l")
     hSig.Draw("")
     hBg.Draw("same")
+    leg.Draw()
     c1.SaveAs('response.png')
     c1.SaveAs('response.pdf')
     c1.SaveSource('response.C')
@@ -79,6 +41,37 @@ def evaluateZScore(probabilities,truth,prunedMass,makePlots=False):
     fout.Write()
     fout.Close()
   return zScore
+
+def drawDistributions(dataX,dataY,weight,names):
+  nData = dataY.shape[0]
+  c1 = root.TCanvas()
+  c1.SetLogy()
+  for i in xrange(len(names)):
+    leg = root.TLegend(.7,.7,.9,.9)
+    c1.Clear()
+    x = dataX[:,i]
+    minX = x.min()
+    maxX = x.max()
+    name = names[i]
+    hSig = root.TH1F('s'+name,name,100,minX,maxX)
+    hBg = root.TH1F('b'+name,name,100,minX,maxX)
+    hSig.SetStats(0)
+    hSig.SetLineColor(2)
+    for iE in xrange(nData):
+      if dataY[iE]==1:
+        hSig.Fill(x[iE],weight[iE])
+      else:
+        hBg.Fill(x[iE],weight[iE])
+    hSig.SetNormFactor()
+    hBg.SetNormFactor()
+    leg.AddEntry(hSig,"Top","l")
+    leg.AddEntry(hBg,"QCD","l")
+    hSig.Draw("hist")
+    hBg.Draw("hist same")
+    leg.Draw()
+    c1.SaveAs(name+'.png')
+    c1.SaveAs(name+'.pdf')
+    c1.SaveSource(name+'.C')
 
 class HiddenLayer(object):
   def __init__(self,input,rng,nIn,nOut,W=None,b=None,sigmoid=T.tanh):
